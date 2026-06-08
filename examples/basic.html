@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Support Widget Demo</title>
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: #f5f7fb;
+        color: #172033;
+        font-family: Arial, sans-serif;
+        padding: 48px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Client Website</h1>
+    <p>This page simulates an external website embedding the SDK.</p>
+
+    <script>
+      window.SupportWidgetConfig = {
+        tenantId: "demo_tenant",
+        userId: "user_123",
+        locale: "ja",
+        theme: "dark",
+        mode: "iframe",
+        portalUrl: "http://localhost:3000/support",
+        primaryColor: "#00d9ff",
+        buttonText: "サポート"
+      };
+    </script>
+    <script async src="../packages/widget/dist/support-widget.js"></script>
+  </body>
+</html>

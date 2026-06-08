@@ -1,0 +1,16 @@
+{
+  "name": "roadvision-customer-support",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@10.12.1",
+  "scripts": {
+    "dev": "corepack pnpm --filter @roadvision/support-portal dev",
+    "build": "corepack pnpm -r build",
+    "build:portal": "corepack pnpm --filter @roadvision/support-portal build",
+    "build:widget": "corepack pnpm --filter @roadvision/support-widget build",
+    "lint": "corepack pnpm -r lint"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
+}

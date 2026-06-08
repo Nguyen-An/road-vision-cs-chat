@@ -1,0 +1,17 @@
+{
+  "name": "@roadvision/support-widget",
+  "private": true,
+  "version": "0.1.0",
+  "main": "dist/support-widget.js",
+  "module": "dist/support-widget.esm.js",
+  "types": "dist/support-widget.d.ts",
+  "scripts": {
+    "build": "tsup",
+    "lint": "eslint src --ext .ts"
+  },
+  "devDependencies": {
+    "eslint": "^9.28.0",
+    "tsup": "^8.5.0",
+    "typescript": "^5.8.3"
+  }
+}
