@@ -58,12 +58,6 @@ export function CategorySidebar({
         <div className="mb-[18px] flex items-center justify-between gap-3">
           <p className="m-0 text-sm font-bold text-slate-600 dark:text-[#8ea0b5]">目次（カテゴリ）</p>
           <div className="flex gap-2">
-            <button className={iconButtonClass} type="button" aria-label="新しいカテゴリを追加">
-              <Plus size={18} />
-            </button>
-            <button className={iconButtonClass} type="button" aria-label="選択中の項目を編集">
-              <SquarePen size={17} />
-            </button>
           </div>
         </div>
 

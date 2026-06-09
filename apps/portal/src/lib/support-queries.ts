@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { getCategories, getPostBySlug, getPosts, getPostsByCategory, getSupportMenuTree } from "@/lib/support-api";
 
 export const supportQueryKeys = {
@@ -44,6 +44,7 @@ export function usePostDetailQuery(categoryId?: number, postSlug?: string) {
 export function useMenuTreeQuery(keyword = "") {
   return useQuery({
     queryKey: supportQueryKeys.menuTree(keyword),
-    queryFn: () => getSupportMenuTree(keyword)
+    queryFn: () => getSupportMenuTree(keyword),
+    placeholderData: keepPreviousData
   });
 }

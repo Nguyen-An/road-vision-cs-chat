@@ -31,14 +31,15 @@ export function ManualManagementView({ initialCategorySlug }: ManualManagementVi
   const [expandedCategorySlugs, setExpandedCategorySlugs] = useState<string[]>([initialCategorySlug]);
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [menuSearch, setMenuSearch] = useState("");
+  const [debouncedMenuSearch, setDebouncedMenuSearch] = useState("");
   const [page, setPage] = useState(1);
   const { data: categories = [], isLoading: categoriesLoading } = useCategoriesQuery();
-  const { data: menuTree = [], isLoading: menuLoading } = useMenuTreeQuery(menuSearch);
+  const { data: menuTree = [] } = useMenuTreeQuery(debouncedMenuSearch);
 
   const category = categories.find((item) => item.slug === selectedCategorySlug);
   const { data: categoryPosts = [], isLoading: postsLoading, isError: postsError } = usePostsByCategoryQuery(category?.id);
   const { data: selectedPost, isLoading: postDetailLoading, isError: postDetailError } = usePostDetailQuery(category?.id, selectedPostSlug);
-  const loading = categoriesLoading || menuLoading;
+  const loading = categoriesLoading;
   const articleHtml = useMemo(() => (selectedPost ? renderMarkdown(selectedPost.content) : ""), [selectedPost]);
   const pageCount = Math.max(1, Math.ceil(categoryPosts.length / POSTS_PER_PAGE));
   const visiblePosts = categoryPosts.slice((page - 1) * POSTS_PER_PAGE, page * POSTS_PER_PAGE);
@@ -46,6 +47,14 @@ export function ManualManagementView({ initialCategorySlug }: ManualManagementVi
   useEffect(() => {
     setPage(1);
   }, [selectedCategorySlug]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedMenuSearch(menuSearch);
+    }, 500);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [menuSearch]);
 
   useEffect(() => {
     setPage((current) => Math.min(current, pageCount));
