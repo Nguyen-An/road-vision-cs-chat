@@ -2,17 +2,19 @@ import { notFound } from "next/navigation";
 import { CalendarDays, Clock3, List } from "lucide-react";
 import { Topbar } from "@/components/topbar";
 import { extractToc, renderMarkdown } from "@/lib/markdown";
-import { getCategoryBySlug, getPostBySlug } from "@/lib/data-cs";
+import { getCategoryBySlug, getPostBySlug } from "@/lib/support-api";
 
 type PageProps = {
   params: Promise<{ categorySlug: string; postSlug: string }>;
 };
 
+export const dynamic = "force-dynamic";
+
 export default async function PostDetailPage({ params }: PageProps) {
   const { categorySlug, postSlug } = await params;
-  const category = getCategoryBySlug(categorySlug);
+  const category = await getCategoryBySlug(categorySlug);
   if (!category) notFound();
-  const post = getPostBySlug(category.id, postSlug);
+  const post = await getPostBySlug(category.id, postSlug);
   if (!post) notFound();
 
   const toc = extractToc(post.content);

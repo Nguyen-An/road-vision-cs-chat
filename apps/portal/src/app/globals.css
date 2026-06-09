@@ -189,7 +189,6 @@ input {
 .menu-tree-children {
   display: grid;
   gap: 4px;
-  margin: 0;
   padding: 0;
   list-style: none;
 }
@@ -198,6 +197,7 @@ input {
   position: relative;
   margin-left: 24px;
   padding-left: 14px;
+  margin-top: 4px;
 }
 
 .menu-tree-children::before {
@@ -435,6 +435,14 @@ input {
   color: var(--cyan);
   outline: none;
   transform: translateY(-1px);
+}
+
+.loading-panel {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--muted);
+  padding: 22px;
 }
 
 .content-head h1 {

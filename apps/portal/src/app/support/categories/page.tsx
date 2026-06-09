@@ -1,8 +1,12 @@
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
-import { categoryList } from "@/lib/data-cs";
+import { getCategories, getCategoryIcon } from "@/lib/support-api";
 
-export default function CategoriesPage() {
+export const dynamic = "force-dynamic";
+
+export default async function CategoriesPage() {
+  const categories = await getCategories();
+
   return (
     <main className="category-list-page">
       <Link className="widget-back" href="/support">
@@ -10,8 +14,8 @@ export default function CategoriesPage() {
         <span>使い方を調べる</span>
       </Link>
       <div className="category-page-card">
-        {categoryList.slice(0, 5).map((category) => {
-          const Icon = category.icon;
+        {categories.slice(0, 5).map((category) => {
+          const Icon = getCategoryIcon(category);
           return (
             <Link className="widget-action-card" key={category.id} href={`/support/categories/${category.slug}`}>
               <Icon size={32} />

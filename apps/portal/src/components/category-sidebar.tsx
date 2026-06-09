@@ -1,9 +1,10 @@
 "use client";
 
 import { BookOpen, ChevronDown, FileText, Plus, SquarePen } from "lucide-react";
-import { supportMenuTree } from "@/lib/data-cs";
+import type { SupportMenuNode } from "@/lib/support-api";
 
 type CategorySidebarProps = {
+  menuTree: SupportMenuNode[];
   activeCategorySlug: string;
   activePostSlug?: string;
   count: number;
@@ -14,6 +15,7 @@ type CategorySidebarProps = {
 };
 
 export function CategorySidebar({
+  menuTree,
   activeCategorySlug,
   activePostSlug,
   count,
@@ -39,7 +41,7 @@ export function CategorySidebar({
 
         <nav aria-label="目次（カテゴリ）">
           <ul className="menu-tree">
-            {supportMenuTree.map((category) => {
+            {menuTree.map((category) => {
               if (!category.categorySlug) return null;
               const expanded = expandedCategorySlugs.includes(category.categorySlug);
               const activeCategory = category.categorySlug === activeCategorySlug && !activePostSlug;

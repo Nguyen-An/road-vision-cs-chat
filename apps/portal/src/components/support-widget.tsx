@@ -3,7 +3,8 @@
 import { BookOpen, ChevronLeft, FileQuestion, Headphones, Map, MapPin, MessageSquare, Video, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { categoryList } from "@/lib/data-cs";
+import { useCategoriesQuery } from "@/lib/support-queries";
+import { getCategoryIcon } from "@/lib/support-api";
 
 type Screen = "home" | "categories";
 
@@ -14,6 +15,7 @@ type SupportWidgetProps = {
 export function SupportWidget({ embedded = false }: SupportWidgetProps) {
   const [isOpen, setIsOpen] = useState(true);
   const [screen, setScreen] = useState<Screen>("home");
+  const { data: categories = [] } = useCategoriesQuery();
   const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -28,7 +30,7 @@ export function SupportWidget({ embedded = false }: SupportWidgetProps) {
     if (isOpen) panelRef.current?.focus();
   }, [isOpen, screen]);
 
-  const visibleCategories = categoryList.slice(0, 5);
+  const visibleCategories = categories.slice(0, 5);
   const closeWidget = () => {
     if (embedded) {
       window.parent.postMessage({ type: "support_widget_close" }, "*");
@@ -75,9 +77,8 @@ export function SupportWidget({ embedded = false }: SupportWidgetProps) {
           ) : (
             <div className="support-widget-body category-cards">
               {visibleCategories.map((category) => {
-                const Icon = category.icon;
                 const Fallback = category.slug === "map-guide" ? Map : category.slug === "monitoring-point-guide" ? MapPin : category.slug === "video-guide" ? Video : category.slug === "faq" ? MessageSquare : FileQuestion;
-                const CardIcon = Icon ?? Fallback;
+                const CardIcon = getCategoryIcon(category) ?? Fallback;
                 const href = `/support/categories/${category.slug}`;
                 return (
                   <Link className="widget-action-card" key={category.id} href={href} target={embedded ? "_top" : undefined}>

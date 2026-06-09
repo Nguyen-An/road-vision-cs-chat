@@ -4,8 +4,9 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight, Clock3, Grid2X2, List, Plus, SquarePen } from "lucide-react";
 import { useMemo, useState } from "react";
 import { CategorySidebar } from "@/components/category-sidebar";
-import { getCategoryBySlug, getPostBySlug, getPostsByCategory } from "@/lib/data-cs";
 import { renderMarkdown } from "@/lib/markdown";
+import { useCategoriesQuery, useMenuTreeQuery, usePostDetailQuery, usePostsByCategoryQuery } from "@/lib/support-queries";
+import { getCategoryIcon } from "@/lib/support-api";
 
 type ManualManagementViewProps = {
   initialCategorySlug: string;
@@ -15,14 +16,33 @@ export function ManualManagementView({ initialCategorySlug }: ManualManagementVi
   const [selectedCategorySlug, setSelectedCategorySlug] = useState(initialCategorySlug);
   const [selectedPostSlug, setSelectedPostSlug] = useState<string | undefined>();
   const [expandedCategorySlugs, setExpandedCategorySlugs] = useState<string[]>([initialCategorySlug]);
+  const { data: categories = [], isLoading: categoriesLoading } = useCategoriesQuery();
+  const { data: menuTree = [], isLoading: menuLoading } = useMenuTreeQuery();
 
-  const category = getCategoryBySlug(selectedCategorySlug);
-  const posts = category ? getPostsByCategory(category.id) : [];
-  const selectedPost = category && selectedPostSlug ? getPostBySlug(category.id, selectedPostSlug) : undefined;
+  const category = categories.find((item) => item.slug === selectedCategorySlug);
+  const {
+    data: categoryPosts = [],
+    isLoading: postsLoading,
+    isError: postsError
+  } = usePostsByCategoryQuery(category?.id);
+  const {
+    data: selectedPost,
+    isLoading: postDetailLoading,
+    isError: postDetailError
+  } = usePostDetailQuery(category?.id, selectedPostSlug);
+  const loading = categoriesLoading || menuLoading;
   const articleHtml = useMemo(() => (selectedPost ? renderMarkdown(selectedPost.content) : ""), [selectedPost]);
 
-  if (!category) return null;
-  const CategoryIcon = category.icon;
+  if (loading || !category) {
+    return (
+      <main className="app-shell">
+        <div className="support-layout">
+          <section className="loading-panel">Loading manual data...</section>
+        </div>
+      </main>
+    );
+  }
+  const CategoryIcon = getCategoryIcon(category);
 
   const toggleCategory = (categorySlug: string) => {
     setExpandedCategorySlugs((current) => (current.includes(categorySlug) ? current.filter((slug) => slug !== categorySlug) : [...current, categorySlug]));
@@ -72,9 +92,10 @@ export function ManualManagementView({ initialCategorySlug }: ManualManagementVi
 
       <div className="support-layout">
         <CategorySidebar
+          menuTree={menuTree}
           activeCategorySlug={selectedCategorySlug}
           activePostSlug={selectedPostSlug}
-          count={posts.length}
+          count={categoryPosts.length}
           expandedCategorySlugs={expandedCategorySlugs}
           onSelectCategory={selectCategory}
           onSelectPost={selectPost}
@@ -82,7 +103,12 @@ export function ManualManagementView({ initialCategorySlug }: ManualManagementVi
         />
 
         <section>
-          {selectedPost ? (
+          {selectedPostSlug ? (
+            postDetailLoading ? (
+              <div className="loading-panel">Loading post detail...</div>
+            ) : postDetailError || !selectedPost ? (
+              <div className="loading-panel">Unable to load post detail.</div>
+            ) : (
             <article className="inline-post-detail">
               <div className="content-head">
                 <div>
@@ -115,12 +141,13 @@ export function ManualManagementView({ initialCategorySlug }: ManualManagementVi
               </header>
               <div className="article-body" dangerouslySetInnerHTML={{ __html: articleHtml }} />
             </article>
+            )
           ) : (
             <>
               <div className="content-head">
                 <div>
                   <h1>{category.title}</h1>
-                  <p>{posts.length} 件の記事</p>
+                  <p>{categoryPosts.length} 件の記事</p>
                 </div>
                 <div className="content-actions">
                   <button type="button">
@@ -133,30 +160,36 @@ export function ManualManagementView({ initialCategorySlug }: ManualManagementVi
                   </button>
                 </div>
               </div>
-              <div className="post-grid">
-                {posts.map((post) => (
-                  <button className="post-card" key={post.id} type="button" onClick={() => selectPost(category.slug, post.slug)}>
-                    <div className="post-card-body">
-                      <div className="post-kicker">
-                        <CategoryIcon size={22} />
-                        <span>{category.title}</span>
+              {postsLoading ? (
+                <div className="loading-panel">Loading posts...</div>
+              ) : postsError ? (
+                <div className="loading-panel">Unable to load posts.</div>
+              ) : (
+                <div className="post-grid">
+                  {categoryPosts.map((post) => (
+                    <button className="post-card" key={post.id} type="button" onClick={() => selectPost(category.slug, post.slug)}>
+                      <div className="post-card-body">
+                        <div className="post-kicker">
+                          <CategoryIcon size={22} />
+                          <span>{category.title}</span>
+                        </div>
+                        <h2>{post.title}</h2>
+                        <p>{post.description}</p>
+                        <div className="tags">
+                          {post.tags.slice(0, 2).map((tag) => (
+                            <span className="tag" key={tag}>
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
                       </div>
-                      <h2>{post.title}</h2>
-                      <p>{post.description}</p>
-                      <div className="tags">
-                        {post.tags.slice(0, 2).map((tag) => (
-                          <span className="tag" key={tag}>
-                            {tag}
-                          </span>
-                        ))}
+                      <div className="post-card-foot">
+                        <Clock3 size={14} /> {post.readTime}
                       </div>
-                    </div>
-                    <div className="post-card-foot">
-                      <Clock3 size={14} /> {post.readTime}
-                    </div>
-                  </button>
-                ))}
-              </div>
+                    </button>
+                  ))}
+                </div>
+              )}
             </>
           )}
         </section>
