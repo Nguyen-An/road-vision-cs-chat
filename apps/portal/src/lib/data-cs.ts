@@ -40,6 +40,17 @@ export interface Post {
   relatedPostIds?: number[];
 }
 
+export type SupportMenuNodeType = "category" | "post";
+
+export interface SupportMenuNode {
+  id: string;
+  type: SupportMenuNodeType;
+  title: string;
+  categorySlug?: string;
+  postSlug?: string;
+  children?: SupportMenuNode[];
+}
+
 export const categoryList: Category[] = [
   { id: 1, title: "地図の使い方", description: "地図画面の基本操作、地点確認、レイヤー切り替え方法を確認できます", slug: "map-guide", icon: Map, order: 1 },
   { id: 2, title: "損傷ポイントの確認方法", description: "道路撮影ポイント、監視地点、走行データの確認手順を確認できます", slug: "monitoring-point-guide", icon: MapPin, order: 2 },
@@ -298,6 +309,77 @@ export const postList: Post[] = [
     level: "intermediate",
     updatedAt: "2026-05-28",
     order: 1
+  }
+];
+
+export const supportMenuTree: SupportMenuNode[] = [
+  {
+    id: "category-map-guide",
+    type: "category",
+    title: "地図の使い方",
+    categorySlug: "map-guide",
+    children: [
+      { id: "post-map-basic-operation", type: "post", title: "地図の基本操作を編集", categorySlug: "map-guide", postSlug: "map-basic-operation" },
+      { id: "post-switch-map-layer", type: "post", title: "レイヤーの切り替え方法", categorySlug: "map-guide", postSlug: "switch-map-layer" },
+      { id: "post-select-route-section", type: "post", title: "路線・区間を選択する", categorySlug: "map-guide", postSlug: "select-route-section" },
+      { id: "post-add-map-memo", type: "post", title: "マップにメモを追加する", categorySlug: "map-guide", postSlug: "add-map-memo" }
+    ]
+  },
+  {
+    id: "category-monitoring-point-guide",
+    type: "category",
+    title: "損傷ポイントの確認方法",
+    categorySlug: "monitoring-point-guide",
+    children: [
+      { id: "post-check-monitoring-point", type: "post", title: "撮影ポイントを確認する", categorySlug: "monitoring-point-guide", postSlug: "check-monitoring-point" },
+      { id: "post-check-monitoring-point-detail", type: "post", title: "監視地点の詳細を確認する", categorySlug: "monitoring-point-guide", postSlug: "check-monitoring-point-detail" }
+    ]
+  },
+  {
+    id: "category-video-guide",
+    type: "category",
+    title: "動画の確認方法",
+    categorySlug: "video-guide",
+    children: [
+      { id: "post-play-driving-video", type: "post", title: "走行動画を再生する", categorySlug: "video-guide", postSlug: "play-driving-video" },
+      { id: "post-check-damage-in-video", type: "post", title: "損傷箇所を動画で確認する", categorySlug: "video-guide", postSlug: "check-damage-in-video" }
+    ]
+  },
+  {
+    id: "category-report-guide",
+    type: "category",
+    title: "レポートの見方",
+    categorySlug: "report-guide",
+    children: [
+      { id: "post-view-inspection-report", type: "post", title: "点検レポートを確認する", categorySlug: "report-guide", postSlug: "view-inspection-report" }
+    ]
+  },
+  {
+    id: "category-faq",
+    type: "category",
+    title: "FAQ よくある質問",
+    categorySlug: "faq",
+    children: [
+      { id: "post-search-by-keyword", type: "post", title: "キーワードで検索する", categorySlug: "faq", postSlug: "search-by-keyword" }
+    ]
+  },
+  {
+    id: "category-damage-management-guide",
+    type: "category",
+    title: "損傷・異常の管理",
+    categorySlug: "damage-management-guide",
+    children: [
+      { id: "post-update-damage-status", type: "post", title: "道路損傷のステータスを更新する", categorySlug: "damage-management-guide", postSlug: "update-damage-status" }
+    ]
+  },
+  {
+    id: "category-dashboard-guide",
+    type: "category",
+    title: "統計・ダッシュボード",
+    categorySlug: "dashboard-guide",
+    children: [
+      { id: "post-view-road-condition-dashboard", type: "post", title: "ダッシュボードで道路状態を確認する", categorySlug: "dashboard-guide", postSlug: "view-road-condition-dashboard" }
+    ]
   }
 ];
 
