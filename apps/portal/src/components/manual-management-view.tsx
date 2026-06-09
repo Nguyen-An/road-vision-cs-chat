@@ -13,6 +13,8 @@ type ManualManagementViewProps = {
   initialCategorySlug: string;
 };
 
+type ViewMode = "grid" | "list";
+
 const shellClass = "min-h-screen bg-slate-50 text-slate-950 dark:bg-[#071624] dark:text-[#f4f8ff]";
 const containerClass = "mx-auto w-[min(1232px,calc(100vw-48px))] max-sm:w-[min(100%-28px,1232px)]";
 const layoutClass = `${containerClass} grid grid-cols-[320px_minmax(0,1fr)] gap-6 py-14 max-[900px]:grid-cols-1`;
@@ -26,6 +28,7 @@ export function ManualManagementView({ initialCategorySlug }: ManualManagementVi
   const [selectedCategorySlug, setSelectedCategorySlug] = useState(initialCategorySlug);
   const [selectedPostSlug, setSelectedPostSlug] = useState<string | undefined>();
   const [expandedCategorySlugs, setExpandedCategorySlugs] = useState<string[]>([initialCategorySlug]);
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const { data: categories = [], isLoading: categoriesLoading } = useCategoriesQuery();
   const { data: menuTree = [], isLoading: menuLoading } = useMenuTreeQuery();
 
@@ -61,6 +64,13 @@ export function ManualManagementView({ initialCategorySlug }: ManualManagementVi
     setExpandedCategorySlugs((current) => (current.includes(categorySlug) ? current : [...current, categorySlug]));
   };
 
+  const viewButtonClass = (mode: ViewMode) =>
+    `grid h-7 w-7 place-items-center rounded-md transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
+      viewMode === mode
+        ? "bg-cyan-50 text-cyan-600 dark:bg-[#17314a] dark:text-cyan-300"
+        : "text-slate-500 hover:bg-slate-100 hover:text-slate-950 dark:text-[#9ba8b7] dark:hover:bg-[#1d2a3b] dark:hover:text-white"
+    }`;
+
   return (
     <main className={shellClass}>
       <header className="sticky top-0 z-10 h-[68px] border-b border-slate-200 bg-white/90 backdrop-blur-xl dark:border-[#243447] dark:bg-[#071624]/95">
@@ -86,11 +96,11 @@ export function ManualManagementView({ initialCategorySlug }: ManualManagementVi
             ) : null}
           </nav>
           <div className="flex items-center gap-2">
-            <div className="flex gap-1.5 rounded-lg border border-slate-200 bg-white p-1.5 dark:border-[#243447] dark:bg-[#102033]" aria-hidden="true">
-              <button className="grid h-7 w-7 place-items-center rounded-md bg-cyan-50 text-cyan-600 dark:bg-[#17314a] dark:text-cyan-300" type="button">
+            <div className="flex gap-1.5 rounded-lg border border-slate-200 bg-white p-1.5 dark:border-[#243447] dark:bg-[#102033]" role="group" aria-label="表示形式">
+              <button className={viewButtonClass("grid")} type="button" aria-pressed={viewMode === "grid"} onClick={() => setViewMode("grid")}>
                 <Grid2X2 size={16} />
               </button>
-              <button className="grid h-7 w-7 place-items-center rounded-md text-slate-500 dark:text-[#9ba8b7]" type="button">
+              <button className={viewButtonClass("list")} type="button" aria-pressed={viewMode === "list"} onClick={() => setViewMode("list")}>
                 <List size={16} />
               </button>
             </div>
@@ -173,6 +183,27 @@ export function ManualManagementView({ initialCategorySlug }: ManualManagementVi
                 <div className={loadingClass}>Loading posts...</div>
               ) : postsError ? (
                 <div className={loadingClass}>Unable to load posts.</div>
+              ) : viewMode === "list" ? (
+                <div className="grid gap-2.5">
+                  {categoryPosts.map((post) => (
+                    <button
+                      className="grid min-h-[68px] grid-cols-[28px_minmax(0,1fr)_auto_auto] items-center gap-4 rounded-lg border border-slate-200 bg-white px-5 py-3 text-left text-slate-950 shadow-sm transition hover:-translate-y-px hover:border-cyan-400/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 dark:border-[#243447] dark:bg-[#0f1e2e] dark:text-[#f4f8ff]"
+                      key={post.id}
+                      type="button"
+                      onClick={() => selectPost(category.slug, post.slug)}
+                    >
+                      <CategoryIcon className="text-cyan-600 dark:text-cyan-300" size={20} />
+                      <span className="min-w-0">
+                        <strong className="block truncate text-[15px]">{post.title}</strong>
+                        <small className="mt-1 block truncate text-[13px] text-slate-600 dark:text-[#9ba8b7]">{post.description}</small>
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 text-xs text-slate-500 dark:text-[#9ba8b7]">
+                        <Clock3 size={14} /> {post.readTime}
+                      </span>
+                      <ChevronRight className="text-slate-400 dark:text-[#738398]" size={16} />
+                    </button>
+                  ))}
+                </div>
               ) : (
                 <div className="grid grid-cols-2 gap-3 max-[900px]:grid-cols-1">
                   {categoryPosts.map((post) => (
