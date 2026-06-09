@@ -1,7 +1,22 @@
 "use client";
 
 import { BookOpen, ChevronDown, FileText, Plus, Search, SquarePen } from "lucide-react";
+import type { FormEvent } from "react";
+import { useState } from "react";
 import type { SupportMenuNode } from "@/lib/support-api";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 type CategorySidebarProps = {
   menuTree: SupportMenuNode[];
@@ -42,9 +57,18 @@ export function CategorySidebar({
   onSelectCategory,
   onSelectPost
 }: CategorySidebarProps) {
+  const [addCategoryOpen, setAddCategoryOpen] = useState(false);
+
+  const handleCreateCategory = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setAddCategoryOpen(false);
+    event.currentTarget.reset();
+  };
+
   return (
     <aside className="flex flex-col gap-[22px]">
-      <div className="rounded-lg border border-slate-200 bg-white p-[18px] shadow-sm dark:border-[#243447] dark:bg-gradient-to-b dark:from-[#0f1e2e]/95 dark:to-[#071624]/95">
+      <Dialog open={addCategoryOpen} onOpenChange={setAddCategoryOpen}>
+        <div className="rounded-lg border border-slate-200 bg-white p-[18px] shadow-sm dark:border-[#243447] dark:bg-gradient-to-b dark:from-[#0f1e2e]/95 dark:to-[#071624]/95">
         <label className="relative mb-4 block">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-[#57697d]" size={17} />
           <input
@@ -58,6 +82,14 @@ export function CategorySidebar({
         <div className="mb-[18px] flex items-center justify-between gap-3">
           <p className="m-0 text-sm font-bold text-slate-600 dark:text-[#8ea0b5]">目次（カテゴリ）</p>
           <div className="flex gap-2">
+            <DialogTrigger asChild>
+              <button className={iconButtonClass} type="button" aria-label="新しいカテゴリを追加">
+                <Plus size={18} />
+              </button>
+            </DialogTrigger>
+            <button className={iconButtonClass} type="button" aria-label="選択中の項目を編集">
+              <SquarePen size={17} />
+            </button>
           </div>
         </div>
 
@@ -125,11 +157,49 @@ export function CategorySidebar({
           </ul>
         </nav>
 
+        <DialogTrigger asChild>
         <button className="mt-[22px] flex min-h-[38px] w-full items-center justify-center gap-2 rounded-[7px] border border-dashed border-slate-300 bg-transparent text-slate-500 transition hover:-translate-y-px hover:border-cyan-400 hover:bg-cyan-50 hover:text-cyan-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 dark:border-slate-500/40 dark:text-slate-300 dark:hover:bg-[#102a41]/70 dark:hover:text-cyan-300" type="button">
           <Plus size={17} />
           <span>新しいカテゴリを追加</span>
         </button>
+        </DialogTrigger>
       </div>
+
+      <DialogContent>
+        <form className="grid gap-5" onSubmit={handleCreateCategory}>
+          <DialogHeader>
+            <DialogTitle>新しいカテゴリを追加</DialogTitle>
+            <DialogDescription>カテゴリ情報を入力して、マニュアルの目次に新しいカテゴリを追加します。</DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="category-title">カテゴリ名</Label>
+              <Input id="category-title" name="title" placeholder="例: 点検データの管理" required />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="category-slug">Slug</Label>
+              <Input id="category-slug" name="slug" placeholder="inspection-data-guide" required />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="category-description">説明</Label>
+              <Input id="category-description" name="description" placeholder="カテゴリの概要を入力" />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="outline">
+                キャンセル
+              </Button>
+            </DialogClose>
+            <Button type="submit">追加</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+      </Dialog>
 
       <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-[#243447] dark:bg-[#0f1e2e]">
         <span className="block text-xs text-slate-500 dark:text-[#66788c]">記事数</span>
