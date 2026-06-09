@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpen, ChevronDown, FileText, Plus, SquarePen } from "lucide-react";
+import { BookOpen, ChevronDown, FileText, Plus, Search, SquarePen } from "lucide-react";
 import type { SupportMenuNode } from "@/lib/support-api";
 
 type CategorySidebarProps = {
@@ -8,7 +8,9 @@ type CategorySidebarProps = {
   activeCategorySlug: string;
   activePostSlug?: string;
   count: number;
+  menuSearch: string;
   expandedCategorySlugs: string[];
+  onMenuSearchChange: (value: string) => void;
   onToggleCategory: (categorySlug: string) => void;
   onSelectCategory: (categorySlug: string) => void;
   onSelectPost: (categorySlug: string, postSlug: string) => void;
@@ -33,7 +35,9 @@ export function CategorySidebar({
   activeCategorySlug,
   activePostSlug,
   count,
+  menuSearch,
   expandedCategorySlugs,
+  onMenuSearchChange,
   onToggleCategory,
   onSelectCategory,
   onSelectPost
@@ -41,6 +45,16 @@ export function CategorySidebar({
   return (
     <aside className="flex flex-col gap-[22px]">
       <div className="rounded-lg border border-slate-200 bg-white p-[18px] shadow-sm dark:border-[#243447] dark:bg-gradient-to-b dark:from-[#0f1e2e]/95 dark:to-[#071624]/95">
+        <label className="relative mb-4 block">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-[#57697d]" size={17} />
+          <input
+            className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 pl-9 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/30 dark:border-[#243447] dark:bg-[#0b1a29] dark:text-[#f4f8ff] dark:placeholder:text-[#66788c]"
+            value={menuSearch}
+            onChange={(event) => onMenuSearchChange(event.target.value)}
+            placeholder="検索..."
+          />
+        </label>
+
         <div className="mb-[18px] flex items-center justify-between gap-3">
           <p className="m-0 text-sm font-bold text-slate-600 dark:text-[#8ea0b5]">目次（カテゴリ）</p>
           <div className="flex gap-2">
@@ -73,7 +87,7 @@ export function CategorySidebar({
                       <ChevronDown size={15} />
                     </button>
                     <button
-                      className="grid w-full min-w-0 grid-cols-[20px_minmax(0,1fr)] items-center gap-2 border-0 bg-transparent py-2 text-left text-current cursor-pointer"
+                      className="grid w-full min-w-0 grid-cols-[20px_minmax(0,1fr)_auto] items-center gap-2 border-0 bg-transparent py-2 text-left text-current cursor-pointer"
                       type="button"
                       onClick={() => {
                         onSelectCategory(category.categorySlug as string);
@@ -82,6 +96,7 @@ export function CategorySidebar({
                     >
                       <BookOpen className="text-current group-hover:text-cyan-500 group-focus-within:text-cyan-500 dark:group-hover:text-cyan-300 dark:group-focus-within:text-cyan-300" size={17} />
                       <span className="truncate">{category.title}</span>
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500 dark:bg-[#1b2d3e] dark:text-[#9ba8b7]">{category.postCount ?? 0}</span>
                     </button>
                     <button className={editButtonClass} type="button" aria-label={`${category.title}を編集`}>
                       <SquarePen size={14} />

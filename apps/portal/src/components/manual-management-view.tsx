@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, Clock3, Grid2X2, List, Plus, SquarePen } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CategorySidebar } from "@/components/category-sidebar";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { renderMarkdown } from "@/lib/markdown";
@@ -14,6 +14,7 @@ type ManualManagementViewProps = {
 };
 
 type ViewMode = "grid" | "list";
+const POSTS_PER_PAGE = 12;
 
 const shellClass = "min-h-screen bg-slate-50 text-slate-950 dark:bg-[#071624] dark:text-[#f4f8ff]";
 const containerClass = "mx-auto w-[min(1232px,calc(100vw-48px))] max-sm:w-[min(100%-28px,1232px)]";
@@ -29,14 +30,26 @@ export function ManualManagementView({ initialCategorySlug }: ManualManagementVi
   const [selectedPostSlug, setSelectedPostSlug] = useState<string | undefined>();
   const [expandedCategorySlugs, setExpandedCategorySlugs] = useState<string[]>([initialCategorySlug]);
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const [menuSearch, setMenuSearch] = useState("");
+  const [page, setPage] = useState(1);
   const { data: categories = [], isLoading: categoriesLoading } = useCategoriesQuery();
-  const { data: menuTree = [], isLoading: menuLoading } = useMenuTreeQuery();
+  const { data: menuTree = [], isLoading: menuLoading } = useMenuTreeQuery(menuSearch);
 
   const category = categories.find((item) => item.slug === selectedCategorySlug);
   const { data: categoryPosts = [], isLoading: postsLoading, isError: postsError } = usePostsByCategoryQuery(category?.id);
   const { data: selectedPost, isLoading: postDetailLoading, isError: postDetailError } = usePostDetailQuery(category?.id, selectedPostSlug);
   const loading = categoriesLoading || menuLoading;
   const articleHtml = useMemo(() => (selectedPost ? renderMarkdown(selectedPost.content) : ""), [selectedPost]);
+  const pageCount = Math.max(1, Math.ceil(categoryPosts.length / POSTS_PER_PAGE));
+  const visiblePosts = categoryPosts.slice((page - 1) * POSTS_PER_PAGE, page * POSTS_PER_PAGE);
+
+  useEffect(() => {
+    setPage(1);
+  }, [selectedCategorySlug]);
+
+  useEffect(() => {
+    setPage((current) => Math.min(current, pageCount));
+  }, [pageCount]);
 
   if (loading || !category) {
     return (
@@ -56,6 +69,7 @@ export function ManualManagementView({ initialCategorySlug }: ManualManagementVi
   const selectCategory = (categorySlug: string) => {
     setSelectedCategorySlug(categorySlug);
     setSelectedPostSlug(undefined);
+    setPage(1);
   };
 
   const selectPost = (categorySlug: string, postSlug: string) => {
@@ -115,7 +129,9 @@ export function ManualManagementView({ initialCategorySlug }: ManualManagementVi
           activeCategorySlug={selectedCategorySlug}
           activePostSlug={selectedPostSlug}
           count={categoryPosts.length}
+          menuSearch={menuSearch}
           expandedCategorySlugs={expandedCategorySlugs}
+          onMenuSearchChange={setMenuSearch}
           onSelectCategory={selectCategory}
           onSelectPost={selectPost}
           onToggleCategory={toggleCategory}
@@ -185,7 +201,7 @@ export function ManualManagementView({ initialCategorySlug }: ManualManagementVi
                 <div className={loadingClass}>Unable to load posts.</div>
               ) : viewMode === "list" ? (
                 <div className="grid gap-2.5">
-                  {categoryPosts.map((post) => (
+                  {visiblePosts.map((post) => (
                     <button
                       className="grid min-h-[68px] grid-cols-[28px_minmax(0,1fr)_auto_auto] items-center gap-4 rounded-lg border border-slate-200 bg-white px-5 py-3 text-left text-slate-950 shadow-sm transition hover:-translate-y-px hover:border-cyan-400/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 dark:border-[#243447] dark:bg-[#0f1e2e] dark:text-[#f4f8ff]"
                       key={post.id}
@@ -206,7 +222,7 @@ export function ManualManagementView({ initialCategorySlug }: ManualManagementVi
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-3 max-[900px]:grid-cols-1">
-                  {categoryPosts.map((post) => (
+                  {visiblePosts.map((post) => (
                     <button className="flex min-h-52 flex-col justify-between rounded-lg border border-slate-200 bg-white p-0 text-left text-slate-950 shadow-sm transition hover:-translate-y-px hover:border-cyan-400/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 dark:border-[#243447] dark:bg-[#0f1e2e] dark:text-[#f4f8ff]" key={post.id} type="button" onClick={() => selectPost(category.slug, post.slug)}>
                       <div className="p-5">
                         <div className="flex items-center gap-1.5 text-xs font-bold text-cyan-600 dark:text-cyan-300">
@@ -230,6 +246,41 @@ export function ManualManagementView({ initialCategorySlug }: ManualManagementVi
                   ))}
                 </div>
               )}
+              {pageCount > 1 ? (
+                <nav className="mt-6 flex items-center justify-center gap-2" aria-label="Pagination">
+                  <button
+                    className="grid h-9 min-w-9 place-items-center rounded-lg border border-slate-200 bg-white px-3 text-slate-500 transition hover:border-cyan-400 hover:text-cyan-600 disabled:cursor-not-allowed disabled:opacity-40 dark:border-[#243447] dark:bg-[#0f1e2e] dark:text-[#9ba8b7] dark:hover:text-cyan-300"
+                    type="button"
+                    disabled={page === 1}
+                    onClick={() => setPage((current) => Math.max(1, current - 1))}
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
+                  {Array.from({ length: pageCount }, (_, index) => index + 1).map((item) => (
+                    <button
+                      className={`grid h-9 min-w-9 place-items-center rounded-lg border px-3 text-sm transition ${
+                        item === page
+                          ? "border-cyan-400 bg-cyan-400 text-slate-950"
+                          : "border-slate-200 bg-white text-slate-500 hover:border-cyan-400 hover:text-cyan-600 dark:border-[#243447] dark:bg-[#0f1e2e] dark:text-[#9ba8b7] dark:hover:text-cyan-300"
+                      }`}
+                      key={item}
+                      type="button"
+                      aria-current={item === page ? "page" : undefined}
+                      onClick={() => setPage(item)}
+                    >
+                      {item}
+                    </button>
+                  ))}
+                  <button
+                    className="grid h-9 min-w-9 place-items-center rounded-lg border border-slate-200 bg-white px-3 text-slate-500 transition hover:border-cyan-400 hover:text-cyan-600 disabled:cursor-not-allowed disabled:opacity-40 dark:border-[#243447] dark:bg-[#0f1e2e] dark:text-[#9ba8b7] dark:hover:text-cyan-300"
+                    type="button"
+                    disabled={page === pageCount}
+                    onClick={() => setPage((current) => Math.min(pageCount, current + 1))}
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                </nav>
+              ) : null}
             </>
           )}
         </section>

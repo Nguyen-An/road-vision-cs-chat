@@ -8,7 +8,7 @@ export const supportQueryKeys = {
   posts: ["support", "posts"] as const,
   postsByCategory: (categoryId: number) => ["support", "posts", "category", categoryId] as const,
   postDetail: (categoryId: number, postSlug: string) => ["support", "posts", "detail", categoryId, postSlug] as const,
-  menuTree: ["support", "menuTree"] as const
+  menuTree: (keyword: string) => ["support", "menuTree", keyword] as const
 };
 
 export function useCategoriesQuery() {
@@ -41,9 +41,9 @@ export function usePostDetailQuery(categoryId?: number, postSlug?: string) {
   });
 }
 
-export function useMenuTreeQuery() {
+export function useMenuTreeQuery(keyword = "") {
   return useQuery({
-    queryKey: supportQueryKeys.menuTree,
-    queryFn: getSupportMenuTree
+    queryKey: supportQueryKeys.menuTree(keyword),
+    queryFn: () => getSupportMenuTree(keyword)
   });
 }

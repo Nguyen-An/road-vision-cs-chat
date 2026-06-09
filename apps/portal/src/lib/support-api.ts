@@ -46,6 +46,7 @@ export interface SupportMenuNode {
   id: string;
   type: SupportMenuNodeType;
   title: string;
+  postCount?: number;
   categorySlug?: string;
   postSlug?: string;
   children?: SupportMenuNode[];
@@ -86,8 +87,30 @@ export async function getPosts() {
   return posts.sort((a, b) => a.order - b.order);
 }
 
-export async function getSupportMenuTree() {
-  return apiFetch<SupportMenuNode[]>("/menuTree");
+function filterMenuTreeByKeyword(menuTree: SupportMenuNode[], keyword: string): SupportMenuNode[] {
+  const normalizedKeyword = keyword.trim().toLowerCase();
+  if (!normalizedKeyword) return menuTree;
+
+  return menuTree.reduce<SupportMenuNode[]>((items, category) => {
+    const categoryMatched = category.title.toLowerCase().includes(normalizedKeyword);
+    const children = category.children?.filter((post) => post.title.toLowerCase().includes(normalizedKeyword)) ?? [];
+    if (!categoryMatched && children.length === 0) return items;
+    items.push({
+      ...category,
+      children: categoryMatched ? category.children : children
+    });
+    return items;
+  }, []);
+}
+
+export async function getSupportMenuTree(keyword = "") {
+  const params = new URLSearchParams();
+  if (keyword.trim()) params.set("q", keyword.trim());
+  let menuTree = await apiFetch<SupportMenuNode[]>(`/menuTree${params.toString() ? `?${params.toString()}` : ""}`);
+  if (keyword.trim() && menuTree.length === 0) {
+    menuTree = await apiFetch<SupportMenuNode[]>("/menuTree");
+  }
+  return filterMenuTreeByKeyword(menuTree, keyword);
 }
 
 export async function getCategoryBySlug(slug: string) {
