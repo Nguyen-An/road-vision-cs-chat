@@ -2,7 +2,7 @@ import { resolveConfig } from "./config";
 import { getSessionId } from "./session";
 import { trackEvent } from "../services/tracking";
 import type { SupportWidgetConfig } from "../types/widget";
-import { createBubble } from "../ui/bubble";
+import { createBubble, getBubbleIcon } from "../ui/bubble";
 import { createIframeModal } from "../ui/iframe-modal";
 import { styles } from "../ui/styles";
 import { buildPortalUrl } from "../utils/url";
@@ -23,6 +23,14 @@ function attachMessageListener() {
   messageListenerAttached = true;
 }
 
+function setBubbleOpen(isOpen: boolean) {
+  if (!activeConfig || !host?.shadowRoot) return;
+  const bubble = host.shadowRoot.querySelector<HTMLButtonElement>(".bubble");
+  if (!bubble) return;
+  bubble.innerHTML = getBubbleIcon(activeConfig, isOpen);
+  bubble.setAttribute("aria-expanded", String(isOpen));
+}
+
 export function init(config?: Partial<SupportWidgetConfig>) {
   try {
     destroy();
@@ -35,7 +43,8 @@ export function init(config?: Partial<SupportWidgetConfig>) {
     style.textContent = styles(activeConfig.primaryColor ?? "#00d9ff", activeConfig.position ?? "bottom-right");
     const container = document.createElement("div");
     container.className = "root";
-    const bubble = createBubble(activeConfig, open);
+    const bubble = createBubble(activeConfig, () => (modal ? close() : open()));
+    bubble.setAttribute("aria-expanded", "false");
     container.appendChild(bubble);
     root.append(style, container);
     document.body.appendChild(host);
@@ -60,12 +69,14 @@ export function open() {
 
   if (modal) return;
   modal = createIframeModal(host.shadowRoot as ShadowRoot, activeConfig, activeSessionId, close);
+  setBubbleOpen(true);
   trackEvent("iframe_opened");
 }
 
 export function close() {
   modal?.remove();
   modal = null;
+  setBubbleOpen(false);
   trackEvent("widget_closed");
 }
 

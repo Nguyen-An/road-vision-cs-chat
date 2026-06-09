@@ -96,7 +96,7 @@ export function SupportWidget({ embedded = false }: SupportWidgetProps) {
 
       {!embedded ? (
         <button className="support-fab" type="button" aria-label={isOpen ? "閉じる" : "開く"} onClick={() => setIsOpen((value) => !value)}>
-          <X size={24} />
+          {isOpen ? <X size={24} /> : <MessageSquare size={24} />}
         </button>
       ) : null}
     </div>
