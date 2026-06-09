@@ -88,17 +88,23 @@
   gap: 14px;
   align-items: center;
   min-height: 64px;
-  border: 0;
+  border: 1px solid transparent;
   border-radius: 10px;
   background: #1d2a3b;
   color: #f4f8ff;
   padding: 14px 18px;
   text-align: left;
   cursor: pointer;
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
 }
 
 .widget-action-card svg {
   color: #00d9ff;
+  transition: color 180ms ease, transform 180ms ease;
 }
 
 .widget-action-card strong {
@@ -115,6 +121,27 @@
   line-height: 1.45;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
+  transition: color 180ms ease;
+}
+
+.widget-action-card:hover,
+.widget-action-card:focus-visible {
+  border-color: rgba(0, 217, 255, 0.62);
+  background: #122a40;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
+  outline: none;
+  transform: translateY(-1px);
+}
+
+.widget-action-card:hover svg,
+.widget-action-card:focus-visible svg {
+  color: #28e2ff;
+  transform: translateX(1px);
+}
+
+.widget-action-card:hover small,
+.widget-action-card:focus-visible small {
+  color: #c3cedb;
 }
 
 .category-cards {

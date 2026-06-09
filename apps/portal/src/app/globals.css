@@ -137,6 +137,11 @@ input {
   border: 1px solid transparent;
   border-radius: 8px;
   color: var(--muted);
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease,
+    color 180ms ease,
+    transform 180ms ease;
 }
 
 .category-link.active {
@@ -147,10 +152,30 @@ input {
 
 .category-link svg {
   color: currentColor;
+  transition: color 180ms ease, transform 180ms ease;
 }
 
 .category-link.active svg {
   color: var(--cyan);
+}
+
+.category-link:hover,
+.category-link:focus-visible {
+  border-color: rgba(0, 217, 255, 0.55);
+  background: #102a41;
+  color: var(--text);
+  outline: none;
+  transform: translateY(-1px);
+}
+
+.category-link:hover svg,
+.category-link:focus-visible svg {
+  color: var(--cyan);
+}
+
+.category-link:hover svg:last-child,
+.category-link:focus-visible svg:last-child {
+  transform: translateX(2px);
 }
 
 .count-box {
