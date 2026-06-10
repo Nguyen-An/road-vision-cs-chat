@@ -22,7 +22,7 @@ export function SupportWidget({ embedded = false }: SupportWidgetProps) {
   const [isOpen, setIsOpen] = useState(true);
   const [screen, setScreen] = useState<Screen>("home");
   const [categoryPage, setCategoryPage] = useState(1);
-  const { data: categories = [] } = useCategoriesQuery();
+  const { data: categories = [], isLoading: categoriesLoading } = useCategoriesQuery();
   const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -100,6 +100,10 @@ export function SupportWidget({ embedded = false }: SupportWidgetProps) {
                   <small>オペレーターと直接チャットで相談する</small>
                 </span>
               </a>
+            </div>
+          ) : categoriesLoading ? (
+            <div className={`flex items-center justify-center px-4 ${embedded ? "min-h-[calc(100vh-57px)]" : "min-h-[360px]"}`} aria-label="Loading categories" role="status">
+              <div className="h-14 w-14 animate-spin rounded-full border-[5px] border-cyan-500/20 border-t-cyan-400 shadow-[0_0_22px_rgba(34,211,238,0.45)]" />
             </div>
           ) : (
             <div className={`grid gap-3 px-4 pb-[18px] pt-5 ${embedded ? "px-4 pb-[18px] pt-[22px]" : ""}`}>
