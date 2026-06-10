@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
-import { getCategories, getCategoryIcon } from "@/lib/support-api";
+import { getCategories, getCategoryIcon } from "@/lib/api/support-api";
 
 export const dynamic = "force-dynamic";
 

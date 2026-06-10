@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
-import { ManualManagementView } from "@/components/manual-management-view";
-import { getCategoryBySlug } from "@/lib/support-api";
+import { ManualManagementView } from "@/features/manual-management/components/manual-management-view";
+import { getCategoryBySlug } from "@/lib/api/support-api";
 
 type PageProps = {
   params: Promise<{ categorySlug: string }>;

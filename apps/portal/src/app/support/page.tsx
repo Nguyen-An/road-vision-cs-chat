@@ -1,4 +1,4 @@
-import { SupportWidget } from "@/components/support-widget";
+import { SupportWidget } from "@/features/support-widget/components/support-widget";
 
 type SupportHomePageProps = {
   searchParams: Promise<{ embed?: string }>;

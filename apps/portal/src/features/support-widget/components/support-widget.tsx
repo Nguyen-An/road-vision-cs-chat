@@ -3,8 +3,8 @@
 import { BookOpen, ChevronLeft, FileQuestion, Headphones, Map, MapPin, MessageSquare, Video, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useCategoriesQuery } from "@/lib/support-queries";
-import { getCategoryIcon } from "@/lib/support-api";
+import { useCategoriesQuery } from "@/lib/api/support-queries";
+import { getCategoryIcon } from "@/lib/api/support-api";
 
 type Screen = "home" | "categories";
 

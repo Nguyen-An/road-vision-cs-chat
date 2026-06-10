@@ -1,8 +1,8 @@
 import { notFound } from "next/navigation";
 import { CalendarDays, Clock3, List } from "lucide-react";
-import { Topbar } from "@/components/topbar";
+import { Topbar } from "@/components/layout/topbar";
 import { extractToc, renderMarkdown } from "@/lib/markdown";
-import { getCategoryBySlug, getPostBySlug } from "@/lib/support-api";
+import { getCategoryBySlug, getPostBySlug } from "@/lib/api/support-api";
 
 type PageProps = {
   params: Promise<{ categorySlug: string; postSlug: string }>;

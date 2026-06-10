@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { SupportMenuNode } from "@/lib/support-api";
+import type { SupportMenuNode } from "@/lib/api/support-api";
 
 export type CategoryDialogMode = "create" | "edit";
 

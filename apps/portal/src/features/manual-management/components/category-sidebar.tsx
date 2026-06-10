@@ -2,8 +2,8 @@
 
 import { BookOpen, ChevronDown, FileText, Plus, Search, SquarePen } from "lucide-react";
 import { useEffect, useState } from "react";
-import { CategoryDialog, type CategoryDialogValues } from "@/components/category-dialog";
-import type { SupportMenuNode } from "@/lib/support-api";
+import { CategoryDialog, type CategoryDialogValues } from "@/features/manual-management/components/category-dialog";
+import type { SupportMenuNode } from "@/lib/api/support-api";
 
 type CategorySidebarProps = {
   menuTree: SupportMenuNode[];

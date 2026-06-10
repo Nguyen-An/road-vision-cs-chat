@@ -1,7 +1,7 @@
 "use client";
 
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { getCategories, getPostBySlug, getPosts, getPostsByCategory, getSupportMenuTree } from "@/lib/support-api";
+import { getCategories, getPostBySlug, getPosts, getPostsByCategory, getSupportMenuTree } from "@/lib/api/support-api";
 
 export const supportQueryKeys = {
   categories: ["support", "categories"] as const,
