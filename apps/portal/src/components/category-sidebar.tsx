@@ -1,22 +1,9 @@
 "use client";
 
 import { BookOpen, ChevronDown, FileText, Plus, Search, SquarePen } from "lucide-react";
-import type { FormEvent } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { CategoryDialog, type CategoryDialogValues } from "@/components/category-dialog";
 import type { SupportMenuNode } from "@/lib/support-api";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 
 type CategorySidebarProps = {
   menuTree: SupportMenuNode[];
@@ -30,9 +17,6 @@ type CategorySidebarProps = {
   onSelectCategory: (categorySlug: string) => void;
   onSelectPost: (categorySlug: string, postSlug: string) => void;
 };
-
-const iconButtonClass =
-  "grid h-[38px] w-[38px] place-items-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:-translate-y-px hover:border-cyan-400 hover:bg-cyan-50 hover:text-cyan-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 dark:border-slate-700 dark:bg-[#102033] dark:text-slate-400 dark:hover:border-cyan-400 dark:hover:bg-[#102a41] dark:hover:text-cyan-300";
 
 const editButtonClass =
   "grid h-[26px] w-[26px] place-items-center rounded-lg border border-slate-200 bg-white text-slate-500 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100 hover:-translate-y-px hover:border-cyan-400 hover:text-cyan-600 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 dark:border-slate-700 dark:bg-[#102033] dark:text-slate-400 dark:hover:bg-[#102a41] dark:hover:text-cyan-300";
@@ -58,17 +42,34 @@ export function CategorySidebar({
   onSelectPost
 }: CategorySidebarProps) {
   const [addCategoryOpen, setAddCategoryOpen] = useState(false);
+  const [editCategoryOpen, setEditCategoryOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<SupportMenuNode | null>(null);
+  const [localMenuTree, setLocalMenuTree] = useState(menuTree);
 
-  const handleCreateCategory = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  useEffect(() => {
+    setLocalMenuTree(menuTree);
+  }, [menuTree]);
+
+  const handleCreateCategory = (_values: CategoryDialogValues) => {
     setAddCategoryOpen(false);
-    event.currentTarget.reset();
+  };
+
+  const openEditCategory = (category: SupportMenuNode) => {
+    setEditingCategory(category);
+    setEditCategoryOpen(true);
+  };
+
+  const handleUpdateCategory = (values: CategoryDialogValues) => {
+    if (!editingCategory) return;
+
+    setLocalMenuTree((current) => current.map((category) => (category.id === editingCategory.id ? { ...category, title: values.title } : category)));
+    setEditingCategory((current) => (current ? { ...current, title: values.title } : current));
+    setEditCategoryOpen(false);
   };
 
   return (
     <aside className="flex flex-col gap-[22px]">
-      <Dialog open={addCategoryOpen} onOpenChange={setAddCategoryOpen}>
-        <div className="rounded-lg border border-slate-200 bg-white p-[18px] shadow-sm dark:border-[#243447] dark:bg-gradient-to-b dark:from-[#0f1e2e]/95 dark:to-[#071624]/95">
+      <div className="rounded-lg border border-slate-200 bg-white p-[18px] shadow-sm dark:border-[#243447] dark:bg-gradient-to-b dark:from-[#0f1e2e]/95 dark:to-[#071624]/95">
         <label className="relative mb-4 block">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-[#57697d]" size={17} />
           <input
@@ -81,21 +82,11 @@ export function CategorySidebar({
 
         <div className="mb-[18px] flex items-center justify-between gap-3">
           <p className="m-0 text-sm font-bold text-slate-600 dark:text-[#8ea0b5]">目次（カテゴリ）</p>
-          <div className="flex gap-2">
-            <DialogTrigger asChild>
-              <button className={iconButtonClass} type="button" aria-label="新しいカテゴリを追加">
-                <Plus size={18} />
-              </button>
-            </DialogTrigger>
-            <button className={iconButtonClass} type="button" aria-label="選択中の項目を編集">
-              <SquarePen size={17} />
-            </button>
-          </div>
         </div>
 
         <nav aria-label="目次（カテゴリ）">
           <ul className="grid list-none gap-1 p-0">
-            {menuTree.map((category) => {
+            {localMenuTree.map((category) => {
               if (!category.categorySlug) return null;
               const expanded = expandedCategorySlugs.includes(category.categorySlug);
               const activeCategory = category.categorySlug === activeCategorySlug && !activePostSlug;
@@ -113,7 +104,7 @@ export function CategorySidebar({
                       <ChevronDown size={15} />
                     </button>
                     <button
-                      className="grid w-full min-w-0 grid-cols-[20px_minmax(0,1fr)_auto] items-center gap-2 border-0 bg-transparent py-2 text-left text-current cursor-pointer"
+                      className="grid w-full min-w-0 cursor-pointer grid-cols-[20px_minmax(0,1fr)_auto] items-center gap-2 border-0 bg-transparent py-2 text-left text-current"
                       type="button"
                       onClick={() => {
                         onSelectCategory(category.categorySlug as string);
@@ -124,7 +115,7 @@ export function CategorySidebar({
                       <span className="truncate">{category.title}</span>
                       <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500 dark:bg-[#1b2d3e] dark:text-[#9ba8b7]">{category.postCount ?? 0}</span>
                     </button>
-                    <button className={editButtonClass} type="button" aria-label={`${category.title}を編集`}>
+                    <button className={editButtonClass} type="button" aria-label={`${category.title}を編集`} onClick={() => openEditCategory(category)}>
                       <SquarePen size={14} />
                     </button>
                   </div>
@@ -138,12 +129,9 @@ export function CategorySidebar({
                           <li className="min-w-0 text-[13px]" key={post.id}>
                             <div className={treeRowClass(activePost)}>
                               <span className="h-full w-[18px]" aria-hidden="true" />
-                              <button className="grid w-full min-w-0 grid-cols-[20px_minmax(0,1fr)] items-center gap-2 border-0 bg-transparent py-2 text-left text-current cursor-pointer" type="button" onClick={() => onSelectPost(post.categorySlug as string, post.postSlug as string)}>
+                              <button className="grid w-full min-w-0 cursor-pointer grid-cols-[20px_minmax(0,1fr)] items-center gap-2 border-0 bg-transparent py-2 text-left text-current" type="button" onClick={() => onSelectPost(post.categorySlug as string, post.postSlug as string)}>
                                 <FileText className="text-current group-hover:text-cyan-500 group-focus-within:text-cyan-500 dark:group-hover:text-cyan-300 dark:group-focus-within:text-cyan-300" size={16} />
                                 <span className="truncate">{post.title}</span>
-                              </button>
-                              <button className={editButtonClass} type="button" aria-label={`${post.title}を編集`}>
-                                <SquarePen size={14} />
                               </button>
                             </div>
                           </li>
@@ -157,49 +145,14 @@ export function CategorySidebar({
           </ul>
         </nav>
 
-        <DialogTrigger asChild>
-        <button className="mt-[22px] flex min-h-[38px] w-full items-center justify-center gap-2 rounded-[7px] border border-dashed border-slate-300 bg-transparent text-slate-500 transition hover:-translate-y-px hover:border-cyan-400 hover:bg-cyan-50 hover:text-cyan-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 dark:border-slate-500/40 dark:text-slate-300 dark:hover:bg-[#102a41]/70 dark:hover:text-cyan-300" type="button">
+        <button className="mt-[22px] flex min-h-[38px] w-full items-center justify-center gap-2 rounded-[7px] border border-dashed border-slate-300 bg-transparent text-slate-500 transition hover:-translate-y-px hover:border-cyan-400 hover:bg-cyan-50 hover:text-cyan-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 dark:border-slate-500/40 dark:text-slate-300 dark:hover:bg-[#102a41]/70 dark:hover:text-cyan-300" type="button" onClick={() => setAddCategoryOpen(true)}>
           <Plus size={17} />
           <span>新しいカテゴリを追加</span>
         </button>
-        </DialogTrigger>
       </div>
 
-      <DialogContent>
-        <form className="grid gap-5" onSubmit={handleCreateCategory}>
-          <DialogHeader>
-            <DialogTitle>新しいカテゴリを追加</DialogTitle>
-            <DialogDescription>カテゴリ情報を入力して、マニュアルの目次に新しいカテゴリを追加します。</DialogDescription>
-          </DialogHeader>
-
-          <div className="grid gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="category-title">カテゴリ名</Label>
-              <Input id="category-title" name="title" placeholder="例: 点検データの管理" required />
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="category-slug">Slug</Label>
-              <Input id="category-slug" name="slug" placeholder="inspection-data-guide" required />
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="category-description">説明</Label>
-              <Input id="category-description" name="description" placeholder="カテゴリの概要を入力" />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button type="button" variant="outline">
-                キャンセル
-              </Button>
-            </DialogClose>
-            <Button type="submit">追加</Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-      </Dialog>
+      <CategoryDialog mode="create" open={addCategoryOpen} onOpenChange={setAddCategoryOpen} onSubmit={handleCreateCategory} />
+      <CategoryDialog category={editingCategory} mode="edit" open={editCategoryOpen} onOpenChange={setEditCategoryOpen} onSubmit={handleUpdateCategory} />
 
       <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-[#243447] dark:bg-[#0f1e2e]">
         <span className="block text-xs text-slate-500 dark:text-[#66788c]">記事数</span>
