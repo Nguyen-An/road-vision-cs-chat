@@ -57,12 +57,12 @@ export function SupportWidget({ embedded = false }: SupportWidgetProps) {
   };
 
   return (
-    <div className={`${embedded ? "min-h-screen border-b-0 bg-transparent" : "min-h-screen border-b-2 border-lime-200 bg-slate-50 dark:bg-[#071624]"}`}>
+    <div className={`${embedded ? "h-screen overflow-hidden border-b-0 bg-transparent" : "min-h-screen border-b-2 border-lime-200 bg-slate-50 dark:bg-[#071624]"}`}>
       {isOpen ? (
         <section
           className={
             embedded
-              ? "min-h-screen w-full overflow-hidden bg-white outline-none dark:bg-[#101b29]"
+              ? "flex h-screen w-full flex-col overflow-hidden bg-white outline-none dark:bg-[#101b29]"
               : "fixed bottom-24 right-[22px] z-40 w-80 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/20 outline-none max-[520px]:inset-0 max-[520px]:w-auto max-[520px]:rounded-none dark:border-[#2b3b4e] dark:bg-[#101b29] dark:shadow-black/30"
           }
           ref={panelRef}
@@ -106,7 +106,7 @@ export function SupportWidget({ embedded = false }: SupportWidgetProps) {
               <div className="h-14 w-14 animate-spin rounded-full border-[5px] border-cyan-500/20 border-t-cyan-400 shadow-[0_0_22px_rgba(34,211,238,0.45)]" />
             </div>
           ) : (
-            <div className={`grid gap-3 px-4 pb-[18px] pt-5 ${embedded ? "px-4 pb-[18px] pt-[22px]" : ""}`}>
+            <div className={`grid gap-3 px-4 pb-[18px] pt-5 ${embedded ? "min-h-0 flex-1 px-4 pb-3 pt-[22px]" : ""}`}>
               {visibleCategories.map((category) => {
                 const Fallback = category.slug === "map-guide" ? Map : category.slug === "monitoring-point-guide" ? MapPin : category.slug === "video-guide" ? Video : category.slug === "faq" ? MessageSquare : FileQuestion;
                 const CardIcon = getCategoryIcon(category) ?? Fallback;
