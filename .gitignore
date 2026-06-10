@@ -12,7 +12,7 @@ next-env.d.ts
 # Build outputs
 dist/
 **/dist/
-apps/portal/public/support-widget.js
+# apps/portal/public/support-widget.js
 
 # Logs
 *.log
