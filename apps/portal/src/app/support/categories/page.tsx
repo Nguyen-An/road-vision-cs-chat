@@ -12,7 +12,7 @@ export default async function CategoriesPage() {
 
   return (
     <main className="mx-auto w-[min(560px,calc(100vw-32px))] py-[72px]">
-      <Link className="inline-flex items-center gap-1 border-0 bg-transparent text-sm font-bold text-cyan-600 dark:text-[#00d9ff]" href="/support">
+      <Link className="inline-flex cursor-pointer items-center gap-1 border-0 bg-transparent text-sm font-bold text-cyan-600 dark:text-[#00d9ff]" href="/support">
         <ChevronLeft size={18} />
         <span>使い方を調べる</span>
       </Link>

@@ -1,10 +1,10 @@
 "use client";
 
-import { BookOpen, ChevronLeft, FileQuestion, Headphones, Map, MapPin, MessageSquare, Video, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { BookOpen, ChevronLeft, ChevronRight, FileQuestion, Headphones, Map, MapPin, MessageSquare, Video, X } from "lucide-react";
 import Link from "next/link";
-import { useCategoriesQuery } from "@/lib/api/support-queries";
+import { useEffect, useRef, useState } from "react";
 import { getCategoryIcon } from "@/lib/api/support-api";
+import { useCategoriesQuery } from "@/lib/api/support-queries";
 
 type Screen = "home" | "categories";
 
@@ -12,12 +12,16 @@ type SupportWidgetProps = {
   embedded?: boolean;
 };
 
+const CATEGORIES_PER_PAGE = 5;
+const OPERATOR_URL = "https://timerex.net/s/vanan6b_576b/096a4aff";
+
 const actionCardClass =
   "grid min-h-16 grid-cols-[42px_minmax(0,1fr)] items-center gap-3.5 rounded-[10px] border border-transparent bg-slate-100 px-[18px] py-3.5 text-left text-slate-950 transition hover:-translate-y-px hover:border-cyan-400/70 hover:bg-cyan-50 hover:shadow-lg hover:shadow-slate-950/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 dark:bg-[#1d2a3b] dark:text-[#f4f8ff] dark:hover:bg-[#122a40] dark:hover:shadow-black/20 [&_svg]:text-cyan-500 dark:[&_svg]:text-[#00d9ff] [&_strong]:mb-1 [&_strong]:block [&_strong]:text-[15px] [&_small]:line-clamp-2 [&_small]:text-xs [&_small]:leading-[1.45] [&_small]:text-slate-500 dark:[&_small]:text-[#9ba8b7]";
 
 export function SupportWidget({ embedded = false }: SupportWidgetProps) {
   const [isOpen, setIsOpen] = useState(true);
   const [screen, setScreen] = useState<Screen>("home");
+  const [categoryPage, setCategoryPage] = useState(1);
   const { data: categories = [] } = useCategoriesQuery();
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -33,12 +37,23 @@ export function SupportWidget({ embedded = false }: SupportWidgetProps) {
     if (isOpen) panelRef.current?.focus();
   }, [isOpen, screen]);
 
-  const visibleCategories = categories.slice(0, 5);
+  useEffect(() => {
+    setCategoryPage((current) => Math.min(current, Math.max(1, Math.ceil(categories.length / CATEGORIES_PER_PAGE))));
+  }, [categories.length]);
+
+  const categoryPageCount = Math.max(1, Math.ceil(categories.length / CATEGORIES_PER_PAGE));
+  const visibleCategories = categories.slice((categoryPage - 1) * CATEGORIES_PER_PAGE, categoryPage * CATEGORIES_PER_PAGE);
+
   const closeWidget = () => {
     if (embedded) {
       window.parent.postMessage({ type: "support_widget_close" }, "*");
     }
     setIsOpen(false);
+  };
+
+  const openCategories = () => {
+    setCategoryPage(1);
+    setScreen("categories");
   };
 
   return (
@@ -58,7 +73,7 @@ export function SupportWidget({ embedded = false }: SupportWidgetProps) {
             {screen === "home" ? (
               <h1 className="m-0 text-[17px] font-bold">カスタマーサポート</h1>
             ) : (
-              <button className="inline-flex items-center gap-1 border-0 bg-transparent text-sm font-bold text-cyan-600 dark:text-[#00d9ff]" type="button" onClick={() => setScreen("home")}>
+              <button className="inline-flex cursor-pointer items-center gap-1 border-0 bg-transparent text-sm font-bold text-cyan-600 dark:text-[#00d9ff]" type="button" onClick={() => setScreen("home")}>
                 <ChevronLeft size={18} />
                 <span>使い方を調べる</span>
               </button>
@@ -71,20 +86,20 @@ export function SupportWidget({ embedded = false }: SupportWidgetProps) {
           {screen === "home" ? (
             <div className={`grid gap-3 px-4 py-[18px] ${embedded ? "px-4 pb-[18px] pt-[22px]" : ""}`}>
               <p className="mb-2 mt-0 text-sm leading-[1.7] text-slate-600 dark:text-[#d6dee8]">こんにちは。どのようなご用件でしょうか？ 以下のオプションからお選びください。</p>
-              <button className={actionCardClass} type="button" onClick={() => setScreen("categories")}>
+              <button className={actionCardClass} type="button" onClick={openCategories}>
                 <BookOpen size={30} />
                 <span>
                   <strong>使い方を調べる</strong>
                   <small>よくある質問やマニュアルを確認する</small>
                 </span>
               </button>
-              <button className={actionCardClass} type="button">
+              <a className={actionCardClass} href={OPERATOR_URL} target="_blank" rel="noopener noreferrer">
                 <Headphones size={32} />
                 <span>
                   <strong>担当者につなぐ</strong>
                   <small>オペレーターと直接チャットで相談する</small>
                 </span>
-              </button>
+              </a>
             </div>
           ) : (
             <div className={`grid gap-3 px-4 pb-[18px] pt-5 ${embedded ? "px-4 pb-[18px] pt-[22px]" : ""}`}>
@@ -93,7 +108,7 @@ export function SupportWidget({ embedded = false }: SupportWidgetProps) {
                 const CardIcon = getCategoryIcon(category) ?? Fallback;
                 const href = `/support/categories/${category.slug}`;
                 return (
-                  <Link className={actionCardClass} key={category.id} href={href} target={embedded ? "_top" : undefined}>
+                  <Link className={actionCardClass} key={category.id} href={href} target="_blank" rel="noopener noreferrer">
                     <CardIcon size={32} />
                     <span>
                       <strong>{category.title}</strong>
@@ -102,6 +117,32 @@ export function SupportWidget({ embedded = false }: SupportWidgetProps) {
                   </Link>
                 );
               })}
+
+              {categoryPageCount > 1 ? (
+                <div className="flex items-center justify-between gap-2 pt-1 text-xs text-slate-500 dark:text-[#9ba8b7]">
+                  <button
+                    className="inline-flex h-8 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 transition hover:border-cyan-400 hover:text-cyan-600 disabled:cursor-not-allowed disabled:opacity-40 dark:border-[#243447] dark:bg-[#0f1e2e] dark:hover:text-cyan-300"
+                    type="button"
+                    disabled={categoryPage === 1}
+                    onClick={() => setCategoryPage((current) => Math.max(1, current - 1))}
+                  >
+                    <ChevronLeft size={14} />
+                    <span>前へ</span>
+                  </button>
+                  <span>
+                    {categoryPage} / {categoryPageCount}
+                  </span>
+                  <button
+                    className="inline-flex h-8 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 transition hover:border-cyan-400 hover:text-cyan-600 disabled:cursor-not-allowed disabled:opacity-40 dark:border-[#243447] dark:bg-[#0f1e2e] dark:hover:text-cyan-300"
+                    type="button"
+                    disabled={categoryPage === categoryPageCount}
+                    onClick={() => setCategoryPage((current) => Math.min(categoryPageCount, current + 1))}
+                  >
+                    <span>次へ</span>
+                    <ChevronRight size={14} />
+                  </button>
+                </div>
+              ) : null}
             </div>
           )}
         </section>
