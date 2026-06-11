@@ -159,6 +159,31 @@ async function extractPrintedTocPageMap(pdf: any) {
   return { pagesByTitle, sectionPages };
 }
 
+async function buildOutlineFromPdf(pdf: any): Promise<{ items: PdfOutlineItem[]; totalPages: number }> {
+  const pdfOutline = await pdf.getOutline();
+  const { pagesByTitle, sectionPages } = await extractPrintedTocPageMap(pdf);
+  const flattenedItems = await Promise.all(
+    flattenOutline(pdfOutline).map(async (item, index) => ({
+      id: `${index}-${item.title}`,
+      title: item.title || `Page ${index + 1}`,
+      page: inferPageFromPrintedToc(item.title ?? "", pagesByTitle, sectionPages) ?? (await resolveOutlinePage(pdf, item.dest)),
+      level: item.level ?? 0
+    }))
+  );
+
+  return {
+    items: flattenedItems.filter((item) => item.title.trim()),
+    totalPages: pdf.numPages
+  };
+}
+
+function expandTopLevelSections(items: PdfOutlineItem[]) {
+  return items.reduce<Record<string, boolean>>((sections, item) => {
+    if (item.level === 0) sections[item.id] = true;
+    return sections;
+  }, {});
+}
+
 function inferPageFromPrintedToc(title: string, pagesByTitle: Map<string, number>, sectionPages: Map<string, number>) {
   const exactPage = pagesByTitle.get(normalizeOutlineTitle(title));
   if (exactPage) return exactPage;
@@ -198,6 +223,8 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [replaceConfirmOpen, setReplaceConfirmOpen] = useState(false);
   const [uploadError, setUploadError] = useState("");
+  const [outlineReloadVersion, setOutlineReloadVersion] = useState(0);
+  const [useEmbeddedOutline, setUseEmbeddedOutline] = useState(false);
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const [outline, setOutline] = useState<PdfOutlineItem[]>([]);
   const [activeOutlineId, setActiveOutlineId] = useState<string | undefined>(initialOutlineId);
@@ -214,6 +241,7 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
   const [viewerInitialPage, setViewerInitialPage] = useState(initialPage);
   const viewerPanelRef = useRef<HTMLDivElement>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
+  const uploadOutlineRequestRef = useRef(0);
   const objectUrlRef = useRef<string | null>(null);
   const scrollCapabilityRef = useRef<any>(null);
   const searchCapabilityRef = useRef<any>(null);
@@ -225,8 +253,9 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
 
   useEffect(() => {
     setCurrentPdfUrl(pdf.pdfUrl);
-    setCurrentFileInfo(getInitialFileInfo(pdf));
-    setActivePage(initialPage);
+      setCurrentFileInfo(getInitialFileInfo(pdf));
+      setUseEmbeddedOutline(false);
+      setActivePage(initialPage);
     setPageInput(String(initialPage));
     setViewerInitialPage(initialPage);
     setActiveOutlineId(initialOutlineId);
@@ -239,18 +268,10 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
     async function loadOutline() {
       setOutlineLoading(true);
 
-      const providedOutline = flattenManualOutline(manualOutline);
+      const providedOutline = useEmbeddedOutline ? [] : flattenManualOutline(manualOutline);
       if (providedOutline.length > 0) {
         setOutline(providedOutline);
-        setExpandedSections((current) => {
-          const next = { ...current };
-          providedOutline.forEach((item) => {
-            if (item.level === 0 && next[item.id] === undefined) {
-              next[item.id] = true;
-            }
-          });
-          return next;
-        });
+        setExpandedSections(expandTopLevelSections(providedOutline));
         setOutlineLoading(false);
         return;
       }
@@ -259,30 +280,12 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
         const pdfjs = await import("pdfjs-dist");
         pdfjs.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).toString();
         const pdf = await pdfjs.getDocument({ url: currentPdfUrl }).promise;
-        if (!cancelled) setTotalPages(pdf.numPages);
-        const pdfOutline = await pdf.getOutline();
-        const { pagesByTitle, sectionPages } = await extractPrintedTocPageMap(pdf);
-        const flattenedItems = await Promise.all(
-          flattenOutline(pdfOutline).map(async (item, index) => ({
-            id: `${index}-${item.title}`,
-            title: item.title || `Page ${index + 1}`,
-            page: inferPageFromPrintedToc(item.title ?? "", pagesByTitle, sectionPages) ?? (await resolveOutlinePage(pdf, item.dest)),
-            level: item.level ?? 0
-          }))
-        );
+        const { items: nextOutline, totalPages: nextTotalPages } = await buildOutlineFromPdf(pdf);
 
         if (!cancelled) {
-          const nextOutline = flattenedItems.filter((item) => item.title.trim());
+          setTotalPages(nextTotalPages);
           setOutline(nextOutline);
-          setExpandedSections((current) => {
-            const next = { ...current };
-            nextOutline.forEach((item) => {
-              if (item.level === 0 && next[item.id] === undefined) {
-                next[item.id] = true;
-              }
-            });
-            return next;
-          });
+          setExpandedSections(expandTopLevelSections(nextOutline));
         }
       } catch {
         if (!cancelled) setOutline([]);
@@ -296,7 +299,7 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
     return () => {
       cancelled = true;
     };
-  }, [currentPdfUrl, manualOutline]);
+  }, [currentPdfUrl, manualOutline, outlineReloadVersion, useEmbeddedOutline]);
 
   useEffect(() => {
     return () => {
@@ -374,7 +377,7 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
     searchCapabilityRef.current?.searchAllPages?.(query);
   };
 
-  const selectUploadFile = (file?: File) => {
+  const selectUploadFile = async (file?: File) => {
     setUploadError("");
     if (!file) return;
     if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
@@ -387,15 +390,47 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
       setUploadError("Dung lượng file tối đa là 20MB.");
       return;
     }
+
     setSelectedFile(file);
+    setOutlineLoading(true);
+    setActiveOutlineId(undefined);
+
+    const requestId = uploadOutlineRequestRef.current + 1;
+    uploadOutlineRequestRef.current = requestId;
+
+    try {
+      const pdfjs = await import("pdfjs-dist");
+      pdfjs.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).toString();
+      const buffer = await file.arrayBuffer();
+      const uploadedPdf = await pdfjs.getDocument({ data: new Uint8Array(buffer) }).promise;
+      const { items: nextOutline, totalPages: nextTotalPages } = await buildOutlineFromPdf(uploadedPdf);
+
+      if (uploadOutlineRequestRef.current !== requestId) return;
+
+      setTotalPages(nextTotalPages);
+      setOutline(nextOutline);
+      setExpandedSections(expandTopLevelSections(nextOutline));
+      setUploadError(nextOutline.length ? "" : "Không tìm thấy mục lục trong file PDF mới.");
+    } catch {
+      if (uploadOutlineRequestRef.current !== requestId) return;
+      setOutline([]);
+      setExpandedSections({});
+      setUploadError("Không thể đọc mục lục từ file PDF này.");
+    } finally {
+      if (uploadOutlineRequestRef.current === requestId) {
+        setOutlineLoading(false);
+      }
+    }
   };
 
   const cancelEditMode = () => {
+    uploadOutlineRequestRef.current += 1;
     setIsEditMode(false);
     setSelectedFile(null);
     setReplaceConfirmOpen(false);
     setUploadError("");
     setIsDraggingFile(false);
+    setOutlineReloadVersion((version) => version + 1);
   };
 
   const savePdfEdit = () => {
@@ -422,6 +457,7 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
     setActivePage(1);
     setPageInput("1");
     setViewerVersion((version) => version + 1);
+    setUseEmbeddedOutline(true);
     setReplaceConfirmOpen(false);
     cancelEditMode();
     toast.success("Cập nhật file PDF thành công.");
@@ -452,7 +488,14 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
     goToPage(item.page);
   };
 
+  const startPdfEditMode = () => {
+    setTocMode("view");
+    setTocDialog(null);
+    setIsEditMode(true);
+  };
+
   const openAddTocDialog = (item: PdfOutlineItem) => {
+    if (isEditMode) return;
     setTocDialog({
       mode: "add",
       anchorId: item.id,
@@ -463,6 +506,7 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
   };
 
   const openEditTocDialog = (item: PdfOutlineItem) => {
+    if (isEditMode) return;
     setTocDialog({
       mode: "edit",
       itemId: item.id,
@@ -536,23 +580,25 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
               </div>
               <div className="flex shrink-0 gap-1">
                 <button
-                  className={`grid h-8 w-8 place-items-center rounded-lg border text-slate-600 transition hover:border-cyan-400 hover:text-cyan-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 dark:text-[#9ba8b7] dark:hover:text-cyan-300 ${
-                    tocMode === "add" ? "border-cyan-400 bg-cyan-50 text-cyan-700 dark:bg-[#102a41] dark:text-cyan-300" : "border-slate-200 dark:border-[#34465c]"
+                  className={`grid h-8 w-8 place-items-center rounded-lg border text-slate-600 transition hover:border-cyan-400 hover:text-cyan-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 disabled:cursor-not-allowed disabled:opacity-40 dark:text-[#9ba8b7] dark:hover:text-cyan-300 ${
+                    !isEditMode && tocMode === "add" ? "border-cyan-400 bg-cyan-50 text-cyan-700 dark:bg-[#102a41] dark:text-cyan-300" : "border-slate-200 dark:border-[#34465c]"
                   }`}
                   type="button"
-                  title="Thêm mới"
-                  aria-label="Thêm mới mục lục"
+                  title={isEditMode ? "Tắt khi chỉnh sửa PDF" : "Chỉnh sửa"}
+                  aria-label="Chỉnh sửa mục lục"
+                  disabled={isEditMode}
                   onClick={() => setTocMode((mode) => (mode === "add" ? "view" : "add"))}
                 >
                   <Plus size={16} />
                 </button>
                 <button
-                  className={`grid h-8 w-8 place-items-center rounded-lg border text-slate-600 transition hover:border-cyan-400 hover:text-cyan-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 dark:text-[#9ba8b7] dark:hover:text-cyan-300 ${
-                    tocMode === "edit" ? "border-cyan-400 bg-cyan-50 text-cyan-700 dark:bg-[#102a41] dark:text-cyan-300" : "border-slate-200 dark:border-[#34465c]"
+                  className={`grid h-8 w-8 place-items-center rounded-lg border text-slate-600 transition hover:border-cyan-400 hover:text-cyan-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 disabled:cursor-not-allowed disabled:opacity-40 dark:text-[#9ba8b7] dark:hover:text-cyan-300 ${
+                    !isEditMode && tocMode === "edit" ? "border-cyan-400 bg-cyan-50 text-cyan-700 dark:bg-[#102a41] dark:text-cyan-300" : "border-slate-200 dark:border-[#34465c]"
                   }`}
                   type="button"
-                  title="Chỉnh sửa"
-                  aria-label="Chỉnh sửa mục lục"
+                  title={isEditMode ? "T\u1eaft khi ch\u1ec9nh s\u1eeda PDF" : "Ch\u1ec9nh s\u1eeda"}
+                  aria-label="Ch\u1ec9nh s\u1eeda m\u1ee5c l\u1ee5c"
+                  disabled={isEditMode}
                   onClick={() => setTocMode((mode) => (mode === "edit" ? "view" : "edit"))}
                 >
                   <SquarePen size={16} />
@@ -595,23 +641,23 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
                       </span>
                       <span className="text-xs font-semibold text-slate-500 dark:text-[#8ea0b5]">{item.page}</span>
                     </button>
-                    {tocMode === "add" ? (
-                      <button
-                        className="grid h-8 w-8 place-items-center rounded-md border border-slate-200 text-slate-500 transition hover:border-cyan-400 hover:bg-cyan-50 hover:text-cyan-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 dark:border-[#34465c] dark:text-[#9ba8b7] dark:hover:bg-[#102a41] dark:hover:text-cyan-300"
-                        type="button"
-                        title="Thêm mục lục"
-                        aria-label={`Thêm mục lục sau ${item.title}`}
-                        onClick={() => openAddTocDialog(item)}
-                      >
-                        <Plus size={14} />
-                      </button>
-                    ) : null}
-                    {tocMode === "edit" ? (
+                    {!isEditMode && tocMode === "add" ? (
                       <button
                         className="grid h-8 w-8 place-items-center rounded-md border border-slate-200 text-slate-500 transition hover:border-cyan-400 hover:bg-cyan-50 hover:text-cyan-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 dark:border-[#34465c] dark:text-[#9ba8b7] dark:hover:bg-[#102a41] dark:hover:text-cyan-300"
                         type="button"
                         title="Chỉnh sửa mục lục"
                         aria-label={`Chỉnh sửa ${item.title}`}
+                        onClick={() => openAddTocDialog(item)}
+                      >
+                        <Plus size={14} />
+                      </button>
+                    ) : null}
+                    {!isEditMode && tocMode === "edit" ? (
+                      <button
+                        className="grid h-8 w-8 place-items-center rounded-md border border-slate-200 text-slate-500 transition hover:border-cyan-400 hover:bg-cyan-50 hover:text-cyan-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 dark:border-[#34465c] dark:text-[#9ba8b7] dark:hover:bg-[#102a41] dark:hover:text-cyan-300"
+                        type="button"
+                        title="Ch?nh s?a m?c l?c"
+                        aria-label={`Ch?nh s?a ${item.title}`}
                         onClick={() => openEditTocDialog(item)}
                       >
                         <SquarePen size={14} />
@@ -641,17 +687,17 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
               className="grid h-9 w-9 place-items-center rounded-lg border border-slate-200 text-slate-600 transition hover:border-cyan-400 hover:text-cyan-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 dark:border-[#243447] dark:text-[#9ba8b7] dark:hover:text-cyan-300"
               href={currentPdfUrl}
               download={currentFileInfo.name}
-              aria-label="Download PDF"
-              title="Download PDF"
+              aria-label="Chỉnh sửa PDF"
+              title="Chỉnh sửa PDF"
             >
               <Download size={17} />
             </a>
             <button
               className="grid h-9 w-9 place-items-center rounded-lg border border-slate-200 text-slate-600 transition hover:border-cyan-400 hover:text-cyan-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 dark:border-[#243447] dark:text-[#9ba8b7] dark:hover:text-cyan-300"
               type="button"
-              aria-label="Chỉnh sửa PDF"
-              title="Chỉnh sửa PDF"
-              onClick={() => setIsEditMode(true)}
+              aria-label="Ch?nh s?a PDF"
+              title="Ch?nh s?a PDF"
+              onClick={startPdfEditMode}
             >
               <SquarePen size={17} />
             </button>
@@ -998,7 +1044,7 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
       <Dialog open={Boolean(tocDialog)} onOpenChange={(open) => !open && setTocDialog(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{tocDialog?.mode === "add" ? "Thêm mới mục lục" : "Chỉnh sửa mục lục"}</DialogTitle>
+            <DialogTitle>{tocDialog?.mode === "add" ? "Thêm một mục cùng cấp với mục lục hiện tại." : "Cập nhật tên danh mục và số trang trên giao diện hiện tại."}</DialogTitle>
             <DialogDescription>
               {tocDialog?.mode === "add" ? "Thêm một mục cùng cấp với mục lục hiện tại." : "Cập nhật tên danh mục và số trang trên giao diện hiện tại."}
             </DialogDescription>
