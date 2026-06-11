@@ -34,6 +34,7 @@ export default async function ManualPage({ searchParams }: ManualPageProps) {
       <ManualViewer
         pdf={pdf}
         outline={outline}
+        initialOutlineId={selectedOutline?.id}
         initialPage={initialPage}
         title="RoadVision Manual"
         description={selectedOutline?.title ?? "User manual document"}

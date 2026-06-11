@@ -56,6 +56,7 @@ type ManualViewerProps = {
   title?: string;
   description?: string;
   outlineTitle?: string;
+  initialOutlineId?: string;
   initialPage?: number;
 };
 
@@ -189,7 +190,7 @@ function getInitialFileInfo(pdf: ManualPdf): PdfFileInfo {
   };
 }
 
-export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, title = defaultManualTitle, description = defaultManualDescription, outlineTitle = title, initialPage = 1 }: ManualViewerProps) {
+export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, title = defaultManualTitle, description = defaultManualDescription, outlineTitle = title, initialOutlineId, initialPage = 1 }: ManualViewerProps) {
   const { theme: appTheme } = useTheme();
   const [currentPdfUrl, setCurrentPdfUrl] = useState(pdf.pdfUrl);
   const [currentFileInfo, setCurrentFileInfo] = useState<PdfFileInfo>(() => getInitialFileInfo(pdf));
@@ -199,6 +200,7 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
   const [uploadError, setUploadError] = useState("");
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const [outline, setOutline] = useState<PdfOutlineItem[]>([]);
+  const [activeOutlineId, setActiveOutlineId] = useState<string | undefined>(initialOutlineId);
   const [tocMode, setTocMode] = useState<TocMode>("view");
   const [tocDialog, setTocDialog] = useState<TocDialogState>(null);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
@@ -227,8 +229,9 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
     setActivePage(initialPage);
     setPageInput(String(initialPage));
     setViewerInitialPage(initialPage);
+    setActiveOutlineId(initialOutlineId);
     setViewerVersion((version) => version + 1);
-  }, [pdf, initialPage]);
+  }, [pdf, initialOutlineId, initialPage]);
 
   useEffect(() => {
     let cancelled = false;
@@ -437,6 +440,7 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
   });
 
   const handleOutlineClick = (item: (typeof outlineItems)[number]) => {
+    setActiveOutlineId(item.id);
     if (item.hasChildren) {
       setExpandedSections((current) => ({
         ...current,
@@ -566,7 +570,7 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
                   <li key={item.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-1">
                     <button
                       className={`grid min-h-9 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-md px-3 py-2 text-left text-sm transition hover:bg-cyan-50 hover:text-cyan-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 dark:hover:bg-[#102a41] dark:hover:text-cyan-300 ${
-                        item.page === activePage ? "bg-cyan-50 text-cyan-700 dark:bg-[#102a41] dark:text-cyan-300" : "text-slate-600 dark:text-[#b7c4d4]"
+                        item.id === activeOutlineId ? "bg-cyan-50 text-cyan-700 dark:bg-[#102a41] dark:text-cyan-300" : "text-slate-600 dark:text-[#b7c4d4]"
                       }`}
                       style={{ paddingLeft: 12 + item.level * 18 }}
                       type="button"
