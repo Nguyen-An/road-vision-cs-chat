@@ -3,13 +3,12 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight, Grid2X2, List } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { CategoryPostsSection } from "@/features/manual-management/components/category-posts-section";
 import { CategorySidebar } from "@/features/manual-management/components/category-sidebar";
 import { containerClass, layoutClass, loadingClass, shellClass } from "@/features/manual-management/components/manual-management-styles";
 import { PostDetailPanel } from "@/features/manual-management/components/post-detail-panel";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
-import { renderMarkdown } from "@/lib/markdown";
 import { useCategoriesQuery, useMenuTreeQuery, usePostDetailQuery, usePostsByCategoryQuery } from "@/lib/api/support-queries";
 import { getCategoryIcon } from "@/lib/api/support-api";
 
@@ -37,7 +36,6 @@ export function ManualManagementView({ initialCategorySlug, initialPostSlug }: M
   const category = categories.find((item) => item.slug === selectedCategorySlug);
   const { data: categoryPosts = [], isLoading: postsLoading, isError: postsError } = usePostsByCategoryQuery(isPostDetail ? undefined : category?.id);
   const { data: selectedPost, isLoading: postDetailLoading, isError: postDetailError } = usePostDetailQuery(category?.id, selectedPostSlug);
-  const articleHtml = useMemo(() => (selectedPost ? renderMarkdown(selectedPost.content) : ""), [selectedPost]);
   const pageCount = Math.max(1, Math.ceil(categoryPosts.length / POSTS_PER_PAGE));
   const visiblePosts = categoryPosts.slice((page - 1) * POSTS_PER_PAGE, page * POSTS_PER_PAGE);
 
@@ -74,7 +72,7 @@ export function ManualManagementView({ initialCategorySlug, initialPostSlug }: M
   }
 
   const CategoryIcon = getCategoryIcon(category);
-  const contentLayoutClass = isPostDetail ? `${containerClass} py-14` : layoutClass;
+  const contentLayoutClass = isPostDetail ? "h-[calc(100dvh-68px)] min-h-0 overflow-hidden" : layoutClass;
 
   const toggleCategory = (categorySlug: string) => {
     setExpandedCategorySlugs((current) => (current.includes(categorySlug) ? current.filter((slug) => slug !== categorySlug) : [...current, categorySlug]));
@@ -155,9 +153,9 @@ export function ManualManagementView({ initialCategorySlug, initialPostSlug }: M
           />
         ) : null}
 
-        <section>
+        <section className={isPostDetail ? "h-full min-h-0" : undefined}>
           {selectedPostSlug ? (
-            <PostDetailPanel articleHtml={articleHtml} category={category} isError={postDetailError} isLoading={postDetailLoading} post={selectedPost} />
+            <PostDetailPanel category={category} isError={postDetailError} isLoading={postDetailLoading} post={selectedPost} />
           ) : (
             <CategoryPostsSection
               category={category}
@@ -178,4 +176,3 @@ export function ManualManagementView({ initialCategorySlug, initialPostSlug }: M
     </main>
   );
 }
-
