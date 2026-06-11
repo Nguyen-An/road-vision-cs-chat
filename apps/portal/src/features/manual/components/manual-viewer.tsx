@@ -196,7 +196,7 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
   const [currentFileInfo, setCurrentFileInfo] = useState<PdfFileInfo>(() => getInitialFileInfo(pdf));
   const [isEditMode, setIsEditMode] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [replaceConfirmed, setReplaceConfirmed] = useState(false);
+  const [replaceConfirmOpen, setReplaceConfirmOpen] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const [outline, setOutline] = useState<PdfOutlineItem[]>([]);
@@ -393,7 +393,7 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
   const cancelEditMode = () => {
     setIsEditMode(false);
     setSelectedFile(null);
-    setReplaceConfirmed(false);
+    setReplaceConfirmOpen(false);
     setUploadError("");
     setIsDraggingFile(false);
   };
@@ -403,24 +403,26 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
       toast.warning("Vui lòng chọn file PDF mới trước khi lưu.");
       return;
     }
-    if (!replaceConfirmed) {
-      toast.warning("Vui lòng xác nhận thay thế file PDF hiện tại trước khi lưu.");
-      return;
-    }
+    setReplaceConfirmOpen(true);
+  };
 
+  const confirmPdfReplace = () => {
+    const file = selectedFile;
+    if (!file) return;
     if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
-    const nextUrl = URL.createObjectURL(selectedFile);
+    const nextUrl = URL.createObjectURL(file);
     objectUrlRef.current = nextUrl;
     setCurrentPdfUrl(nextUrl);
     setCurrentFileInfo({
-      name: selectedFile.name,
+      name: file.name,
       updatedAt: formatUpdatedAt(new Date()),
-      size: formatFileSize(selectedFile.size)
+      size: formatFileSize(file.size)
     });
     setViewerInitialPage(1);
     setActivePage(1);
     setPageInput("1");
     setViewerVersion((version) => version + 1);
+    setReplaceConfirmOpen(false);
     cancelEditMode();
     toast.success("Cập nhật file PDF thành công.");
   };
@@ -626,6 +628,7 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
       </aside>
 
       <section ref={viewerPanelRef} className="flex min-h-0 flex-col bg-slate-100 dark:bg-[#081827]">
+        {!isEditMode ? (
         <header className="flex min-h-[58px] items-center justify-between gap-4 border-b border-slate-200 bg-white px-5 dark:border-[#243447] dark:bg-[#0b1a29] max-sm:grid">
           <div className="flex min-w-0 flex-1 items-center gap-4 max-sm:grid">
             <div className="min-w-0">
@@ -663,12 +666,13 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
             </button>
           </div>
         </header>
+        ) : null}
         {isEditMode ? (
-          <section className="border-b border-slate-200 bg-slate-50 px-5 py-4 dark:border-[#243447] dark:bg-[#0b1a29]" aria-label="PDF edit panel">
+          <section className="border-b border-slate-200 bg-slate-50 px-5 py-3 dark:border-[#243447] dark:bg-[#0b1a29]" aria-label="PDF edit panel">
             <div className="mb-3 flex items-center justify-between gap-3">
               <div>
                 <h2 className="m-0 text-sm font-bold text-slate-800 dark:text-[#f4f8ff]">Chỉnh sửa PDF</h2>
-                <p className="mt-1 text-xs text-slate-500 dark:text-[#9ba8b7]">Chọn file PDF mới và xác nhận thay thế file hiện tại.</p>
+                <p className="mt-1 text-xs text-slate-500 dark:text-[#9ba8b7]">Chọn file PDF mới để cập nhật tài liệu hiện tại.</p>
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 <button
@@ -691,9 +695,9 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
               </div>
             </div>
 
-            <div className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(280px,0.8fr)]">
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(260px,0.7fr)]">
               <button
-                className={`min-h-36 rounded-lg border border-dashed p-5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
+                className={`min-h-28 rounded-lg border border-dashed p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
                   isDraggingFile
                     ? "border-cyan-400 bg-cyan-50 dark:bg-[#102a41]"
                     : "border-slate-300 bg-white hover:border-cyan-400 hover:bg-cyan-50/50 dark:border-[#34465c] dark:bg-[#071624] dark:hover:bg-[#102a41]/60"
@@ -719,8 +723,8 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
                   onChange={(event) => selectUploadFile(event.target.files?.item(0) ?? undefined)}
                 />
                 <div className="flex h-full items-center justify-center gap-4 max-sm:flex-col max-sm:text-center">
-                  <div className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-cyan-50 text-cyan-600 dark:bg-[#102a41] dark:text-cyan-300">
-                    <UploadCloud size={24} />
+                  <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-cyan-50 text-cyan-600 dark:bg-[#102a41] dark:text-cyan-300">
+                    <UploadCloud size={22} />
                   </div>
                   <div>
                     <p className="m-0 text-sm font-bold text-slate-800 dark:text-[#f4f8ff]">Upload PDF mới</p>
@@ -737,7 +741,7 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
                 </div>
               </button>
 
-              <div className="rounded-lg border border-slate-200 bg-white p-5 dark:border-[#34465c] dark:bg-[#071624]">
+              <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-[#34465c] dark:bg-[#071624]">
                 <p className="m-0 text-sm font-bold text-slate-800 dark:text-[#f4f8ff]">File PDF hiện tại</p>
                 <div className="mt-4 flex items-start gap-3">
                   <FileText className="mt-0.5 shrink-0 text-cyan-600 dark:text-cyan-300" size={20} />
@@ -755,15 +759,6 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
                   <Download size={16} />
                   Download file cũ
                 </a>
-                <label className="mt-4 flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700 dark:border-[#34465c] dark:bg-[#102033] dark:text-[#d8e2ed]">
-                  <input
-                    className="h-4 w-4 accent-cyan-600"
-                    type="checkbox"
-                    checked={replaceConfirmed}
-                    onChange={(event) => setReplaceConfirmed(event.target.checked)}
-                  />
-                  Thay thế file PDF hiện tại
-                </label>
               </div>
             </div>
           </section>
@@ -975,6 +970,31 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
         </div>
       </section>
     </div>
+      <Dialog open={replaceConfirmOpen} onOpenChange={setReplaceConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Xác nhận thay thế PDF</DialogTitle>
+            <DialogDescription>Sau khi bạn lưu thay đổi, File PDF mới sẽ thay thế file PDF hiện tại.</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <button
+              className="inline-flex h-9 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 dark:border-[#34465c] dark:bg-[#102033] dark:text-[#d8e2ed] dark:hover:bg-[#172a3f]"
+              type="button"
+              onClick={() => setReplaceConfirmOpen(false)}
+            >
+              Hủy
+            </button>
+            <button
+              className="inline-flex h-9 items-center justify-center rounded-lg bg-cyan-600 px-4 text-sm font-semibold text-white transition hover:bg-cyan-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 dark:bg-cyan-500 dark:text-[#062235] dark:hover:bg-cyan-400"
+              type="button"
+              onClick={confirmPdfReplace}
+            >
+              Lưu thay đổi
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={Boolean(tocDialog)} onOpenChange={(open) => !open && setTocDialog(null)}>
         <DialogContent>
           <DialogHeader>
