@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { BookOpen, ChevronDown, ChevronRight, Download, Expand, FileText, Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useTheme } from "@/app/theme-provider";
 import type { Category, Post } from "@/lib/api/support-api";
 import { loadingClass } from "@/features/manual-management/components/manual-management-styles";
 
@@ -119,6 +120,7 @@ function inferPageFromPrintedToc(title: string, pagesByTitle: Map<string, number
 }
 
 export function PostDetailPanel({ category, isError, isLoading, post }: PostDetailPanelProps) {
+  const { theme: appTheme } = useTheme();
   const [outline, setOutline] = useState<PdfOutlineItem[]>([]);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
   const [outlineLoading, setOutlineLoading] = useState(true);
@@ -297,7 +299,7 @@ export function PostDetailPanel({ category, isError, isLoading, post }: PostDeta
         </div>
       </aside>
 
-      <section ref={viewerPanelRef} className="flex min-h-0 flex-col bg-[#edf3f8] dark:bg-[#081827]">
+      <section ref={viewerPanelRef} className="flex min-h-0 flex-col bg-slate-100 dark:bg-[#081827]">
         <header className="flex min-h-[58px] items-center justify-between gap-4 border-b border-slate-200 bg-white px-5 dark:border-[#243447] dark:bg-[#0b1a29] max-sm:grid">
           <div className="flex min-w-0 flex-1 items-center gap-4 max-sm:grid">
             <div className="min-w-0">
@@ -328,11 +330,69 @@ export function PostDetailPanel({ category, isError, isLoading, post }: PostDeta
         </header>
         <div className="min-h-0 flex-1">
           <PDFViewer
-            key={viewerVersion}
+            key={`${viewerVersion}-${appTheme}`}
             config={{
               src: viewerSrc,
               theme: {
-                preference: "dark"
+                preference: appTheme,
+                light: {
+                  background: {
+                    app: "#eef3f8",
+                    surface: "#f8fafc",
+                    surfaceAlt: "#e8eef5",
+                    elevated: "#ffffff",
+                    input: "#ffffff"
+                  },
+                  foreground: {
+                    primary: "#0f172a",
+                    secondary: "#475569",
+                    muted: "#64748b"
+                  },
+                  border: {
+                    default: "#cbd5e1",
+                    subtle: "#dbe4ee",
+                    strong: "#94a3b8"
+                  },
+                  interactive: {
+                    hover: "#e2e8f0",
+                    active: "#dbeafe",
+                    selected: "#e0f2fe",
+                    focus: "#06b6d4",
+                    focusRing: "rgba(6, 182, 212, 0.28)"
+                  },
+                  accent: {
+                    primary: "#0891b2",
+                    primaryHover: "#0e7490",
+                    primaryActive: "#155e75",
+                    primaryLight: "#cffafe",
+                    primaryForeground: "#ffffff"
+                  },
+                  scrollbar: {
+                    track: "#e8eef5",
+                    thumb: "#94a3b8",
+                    thumbHover: "#64748b"
+                  }
+                },
+                dark: {
+                  background: {
+                    app: "#111827",
+                    surface: "#1f2937",
+                    surfaceAlt: "#243244",
+                    elevated: "#0f1e2e",
+                    input: "#102033"
+                  },
+                  border: {
+                    default: "#34465c",
+                    subtle: "#243447"
+                  },
+                  accent: {
+                    primary: "#22d3ee",
+                    primaryHover: "#67e8f9",
+                    primaryActive: "#0891b2",
+                    primaryLight: "#102a41",
+                    primaryForeground: "#082f49"
+                  }
+                }
               },
               tabBar: "never",
               ui: {
