@@ -461,12 +461,41 @@ export function PostDetailPanel({ category, isError, isLoading, post }: PostDeta
   if (isError || !post) return <div className={loadingClass}>Unable to load post detail.</div>;
 
   return (
-    <div className="grid h-full min-h-0 grid-cols-[320px_minmax(0,1fr)] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-[#243447] dark:bg-[#071624] max-[900px]:grid-cols-1">
+    <>
+      <div className="grid h-full min-h-0 grid-cols-[320px_minmax(0,1fr)] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-[#243447] dark:bg-[#071624] max-[900px]:grid-cols-1">
       <aside className="min-h-0 border-r border-slate-200 bg-slate-50/80 dark:border-[#243447] dark:bg-[#0b1a29] max-[900px]:max-h-[32dvh] max-[900px]:border-b max-[900px]:border-r-0">
         <div className="flex h-full min-h-0 flex-col">
           <div className="border-b border-slate-200 px-5 py-4 dark:border-[#243447]">
-            <p className="m-0 text-sm font-bold text-slate-700 dark:text-[#d8e2ed]">Mục lục (PDF)</p>
-            <p className="mt-1 truncate text-xs text-slate-500 dark:text-[#738398]">{category.title}</p>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="m-0 text-sm font-bold text-slate-700 dark:text-[#d8e2ed]">Mục lục (PDF)</p>
+                <p className="mt-1 truncate text-xs text-slate-500 dark:text-[#738398]">{category.title}</p>
+              </div>
+              <div className="flex shrink-0 gap-1">
+                <button
+                  className={`grid h-8 w-8 place-items-center rounded-lg border text-slate-600 transition hover:border-cyan-400 hover:text-cyan-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 dark:text-[#9ba8b7] dark:hover:text-cyan-300 ${
+                    tocMode === "add" ? "border-cyan-400 bg-cyan-50 text-cyan-700 dark:bg-[#102a41] dark:text-cyan-300" : "border-slate-200 dark:border-[#34465c]"
+                  }`}
+                  type="button"
+                  title="Thêm mới"
+                  aria-label="Thêm mới mục lục"
+                  onClick={() => setTocMode((mode) => (mode === "add" ? "view" : "add"))}
+                >
+                  <Plus size={16} />
+                </button>
+                <button
+                  className={`grid h-8 w-8 place-items-center rounded-lg border text-slate-600 transition hover:border-cyan-400 hover:text-cyan-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 dark:text-[#9ba8b7] dark:hover:text-cyan-300 ${
+                    tocMode === "edit" ? "border-cyan-400 bg-cyan-50 text-cyan-700 dark:bg-[#102a41] dark:text-cyan-300" : "border-slate-200 dark:border-[#34465c]"
+                  }`}
+                  type="button"
+                  title="Chỉnh sửa"
+                  aria-label="Chỉnh sửa mục lục"
+                  onClick={() => setTocMode((mode) => (mode === "edit" ? "view" : "edit"))}
+                >
+                  <SquarePen size={16} />
+                </button>
+              </div>
+            </div>
           </div>
           <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-3" aria-label="PDF table of contents">
             {outlineLoading ? (
@@ -477,7 +506,7 @@ export function PostDetailPanel({ category, isError, isLoading, post }: PostDeta
             ) : outline.length ? (
               <ul className="grid list-none gap-1 p-0">
                 {visibleOutlineItems.map((item) => (
-                  <li key={item.id}>
+                  <li key={item.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-1">
                     <button
                       className={`grid min-h-9 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-md px-3 py-2 text-left text-sm transition hover:bg-cyan-50 hover:text-cyan-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 dark:hover:bg-[#102a41] dark:hover:text-cyan-300 ${
                         item.page === activePage ? "bg-cyan-50 text-cyan-700 dark:bg-[#102a41] dark:text-cyan-300" : "text-slate-600 dark:text-[#b7c4d4]"
@@ -503,6 +532,28 @@ export function PostDetailPanel({ category, isError, isLoading, post }: PostDeta
                       </span>
                       <span className="text-xs font-semibold text-slate-500 dark:text-[#8ea0b5]">{item.page}</span>
                     </button>
+                    {tocMode === "add" ? (
+                      <button
+                        className="grid h-8 w-8 place-items-center rounded-md border border-slate-200 text-slate-500 transition hover:border-cyan-400 hover:bg-cyan-50 hover:text-cyan-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 dark:border-[#34465c] dark:text-[#9ba8b7] dark:hover:bg-[#102a41] dark:hover:text-cyan-300"
+                        type="button"
+                        title="Thêm mục lục"
+                        aria-label={`Thêm mục lục sau ${item.title}`}
+                        onClick={() => openAddTocDialog(item)}
+                      >
+                        <Plus size={14} />
+                      </button>
+                    ) : null}
+                    {tocMode === "edit" ? (
+                      <button
+                        className="grid h-8 w-8 place-items-center rounded-md border border-slate-200 text-slate-500 transition hover:border-cyan-400 hover:bg-cyan-50 hover:text-cyan-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 dark:border-[#34465c] dark:text-[#9ba8b7] dark:hover:bg-[#102a41] dark:hover:text-cyan-300"
+                        type="button"
+                        title="Chỉnh sửa mục lục"
+                        aria-label={`Chỉnh sửa ${item.title}`}
+                        onClick={() => openEditTocDialog(item)}
+                      >
+                        <SquarePen size={14} />
+                      </button>
+                    ) : null}
                   </li>
                 ))}
               </ul>
@@ -863,5 +914,84 @@ export function PostDetailPanel({ category, isError, isLoading, post }: PostDeta
         </div>
       </section>
     </div>
+      <Dialog open={Boolean(tocDialog)} onOpenChange={(open) => !open && setTocDialog(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{tocDialog?.mode === "add" ? "Thêm mới mục lục" : "Chỉnh sửa mục lục"}</DialogTitle>
+            <DialogDescription>
+              {tocDialog?.mode === "add" ? "Thêm một mục cùng cấp với mục lục hiện tại." : "Cập nhật tên danh mục và số trang trên giao diện hiện tại."}
+            </DialogDescription>
+          </DialogHeader>
+          {tocDialog ? (
+            <form
+              className="grid gap-4"
+              onSubmit={(event) => {
+                event.preventDefault();
+                submitTocDialog();
+              }}
+            >
+              <label className="grid gap-2 text-sm font-medium text-slate-700 dark:text-[#d8e2ed]">
+                <span>Tên danh mục</span>
+                <input
+                  className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/25 dark:border-[#34465c] dark:bg-[#102033] dark:text-[#f4f8ff]"
+                  value={tocDialog.title}
+                  onChange={(event) => setTocDialog((current) => (current ? { ...current, title: event.target.value } : current))}
+                  required
+                />
+              </label>
+              {tocDialog.mode === "add" ? (
+                <fieldset className="grid gap-2 rounded-md border border-slate-200 p-3 text-sm text-slate-700 dark:border-[#34465c] dark:text-[#d8e2ed]">
+                  <legend className="px-1 text-sm font-medium">Vị trí thêm</legend>
+                  <label className="inline-flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="toc-position"
+                      checked={tocDialog.position === "above"}
+                      onChange={() => setTocDialog((current) => (current?.mode === "add" ? { ...current, position: "above" } : current))}
+                    />
+                    Trên danh mục hiện tại
+                  </label>
+                  <label className="inline-flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="toc-position"
+                      checked={tocDialog.position === "below"}
+                      onChange={() => setTocDialog((current) => (current?.mode === "add" ? { ...current, position: "below" } : current))}
+                    />
+                    Dưới danh mục hiện tại
+                  </label>
+                </fieldset>
+              ) : null}
+              <label className="grid gap-2 text-sm font-medium text-slate-700 dark:text-[#d8e2ed]">
+                <span>Số trang</span>
+                <input
+                  className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/25 dark:border-[#34465c] dark:bg-[#102033] dark:text-[#f4f8ff]"
+                  type="number"
+                  min={1}
+                  value={tocDialog.page}
+                  onChange={(event) => setTocDialog((current) => (current ? { ...current, page: event.target.value } : current))}
+                  required
+                />
+              </label>
+              <DialogFooter>
+                <button
+                  className="inline-flex h-9 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 dark:border-[#34465c] dark:bg-[#102033] dark:text-[#d8e2ed] dark:hover:bg-[#172a3f]"
+                  type="button"
+                  onClick={() => setTocDialog(null)}
+                >
+                  Hủy
+                </button>
+                <button
+                  className="inline-flex h-9 items-center justify-center rounded-lg bg-cyan-600 px-4 text-sm font-semibold text-white transition hover:bg-cyan-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 dark:bg-cyan-500 dark:text-[#062235] dark:hover:bg-cyan-400"
+                  type="submit"
+                >
+                  {tocDialog.mode === "add" ? "Thêm mới" : "Lưu"}
+                </button>
+              </DialogFooter>
+            </form>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
