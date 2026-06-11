@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { BookOpen, ChevronDown, ChevronRight, Download, Expand, FileText, Loader2 } from "lucide-react";
+import { BookOpen, ChevronDown, ChevronLeft, ChevronRight, Download, Expand, FileText, Loader2, RotateCcw, Search, ZoomIn, ZoomOut } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTheme } from "@/app/theme-provider";
 import type { Category, Post } from "@/lib/api/support-api";
@@ -125,11 +125,19 @@ export function PostDetailPanel({ category, isError, isLoading, post }: PostDeta
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
   const [outlineLoading, setOutlineLoading] = useState(true);
   const [activePage, setActivePage] = useState(1);
+  const [pageInput, setPageInput] = useState("1");
+  const [totalPages, setTotalPages] = useState(1);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [zoomPercent, setZoomPercent] = useState(100);
   const [viewerVersion, setViewerVersion] = useState(0);
   const [viewerInitialPage, setViewerInitialPage] = useState(1);
   const viewerPanelRef = useRef<HTMLDivElement>(null);
   const scrollCapabilityRef = useRef<any>(null);
+  const searchCapabilityRef = useRef<any>(null);
+  const zoomCapabilityRef = useRef<any>(null);
   const unsubscribePageChangeRef = useRef<(() => void) | null>(null);
+  const unsubscribeLayoutReadyRef = useRef<(() => void) | null>(null);
+  const unsubscribeZoomChangeRef = useRef<(() => void) | null>(null);
   const viewerSrc = viewerInitialPage > 1 ? `${localPdfUrl}#page=${viewerInitialPage}` : localPdfUrl;
 
   useEffect(() => {
@@ -141,6 +149,7 @@ export function PostDetailPanel({ category, isError, isLoading, post }: PostDeta
         const pdfjs = await import("pdfjs-dist");
         pdfjs.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).toString();
         const pdf = await pdfjs.getDocument({ url: localPdfUrl }).promise;
+        if (!cancelled) setTotalPages(pdf.numPages);
         const pdfOutline = await pdf.getOutline();
         const { pagesByTitle, sectionPages } = await extractPrintedTocPageMap(pdf);
         const flattenedItems = await Promise.all(
@@ -182,24 +191,52 @@ export function PostDetailPanel({ category, isError, isLoading, post }: PostDeta
   useEffect(() => {
     return () => {
       unsubscribePageChangeRef.current?.();
+      unsubscribeLayoutReadyRef.current?.();
+      unsubscribeZoomChangeRef.current?.();
     };
   }, []);
+
+  useEffect(() => {
+    setPageInput(String(activePage));
+  }, [activePage]);
 
   const handleViewerReady = (registry: any) => {
     const scrollPlugin = registry.getPlugin("scroll") ?? registry.getCapabilityProvider("scroll");
     const scrollCapability = scrollPlugin?.provides?.();
+    const zoomPlugin = registry.getPlugin("zoom") ?? registry.getCapabilityProvider("zoom");
+    const zoomCapability = zoomPlugin?.provides?.();
+    const searchPlugin = registry.getPlugin("search") ?? registry.getCapabilityProvider("search");
+    const searchCapability = searchPlugin?.provides?.();
     scrollCapabilityRef.current = scrollCapability;
+    zoomCapabilityRef.current = zoomCapability;
+    searchCapabilityRef.current = searchCapability;
     unsubscribePageChangeRef.current?.();
-    unsubscribePageChangeRef.current = scrollCapability?.onPageChange?.((event: { pageNumber: number }) => {
+    unsubscribeLayoutReadyRef.current?.();
+    unsubscribeZoomChangeRef.current?.();
+    unsubscribePageChangeRef.current = scrollCapability?.onPageChange?.((event: { pageNumber: number; totalPages?: number }) => {
       setActivePage(event.pageNumber);
+      if (event.totalPages) setTotalPages(event.totalPages);
     });
+    unsubscribeLayoutReadyRef.current = scrollCapability?.onLayoutReady?.((event: { pageNumber: number; totalPages: number }) => {
+      setActivePage(event.pageNumber);
+      setTotalPages(event.totalPages);
+    });
+    unsubscribeZoomChangeRef.current = zoomCapability?.onZoomChange?.((event: { newZoom: number }) => {
+      setZoomPercent(Math.round(event.newZoom * 100));
+    });
+    const zoomState = zoomCapability?.getState?.();
+    if (zoomState?.currentZoomLevel) setZoomPercent(Math.round(zoomState.currentZoomLevel * 100));
+    const currentPage = scrollCapability?.getCurrentPage?.();
+    const pages = scrollCapability?.getTotalPages?.();
+    if (currentPage) setActivePage(currentPage);
+    if (pages) setTotalPages(pages);
     window.setTimeout(() => {
       scrollCapability?.scrollToPage?.({ pageNumber: activePage });
     }, 0);
   };
 
   const goToPage = (page: number) => {
-    const nextPage = Math.max(page, 1);
+    const nextPage = Math.min(Math.max(page, 1), totalPages);
     setActivePage(nextPage);
     const scrollCapability = scrollCapabilityRef.current;
     if (scrollCapability?.scrollToPage) {
@@ -208,6 +245,22 @@ export function PostDetailPanel({ category, isError, isLoading, post }: PostDeta
     }
     setViewerInitialPage(nextPage);
     setViewerVersion((version) => version + 1);
+  };
+
+  const submitPageInput = () => {
+    const page = Number(pageInput);
+    if (!Number.isFinite(page)) {
+      setPageInput(String(activePage));
+      return;
+    }
+    goToPage(Math.trunc(page));
+  };
+
+  const submitSearch = () => {
+    const query = searchQuery.trim();
+    if (!query) return;
+    searchCapabilityRef.current?.startSearch?.();
+    searchCapabilityRef.current?.searchAllPages?.(query);
   };
 
   const outlineItems = outline.map((item, index) => ({
@@ -328,6 +381,103 @@ export function PostDetailPanel({ category, isError, isLoading, post }: PostDeta
             </button>
           </div>
         </header>
+        <div className="flex min-h-14 flex-wrap items-center gap-3 border-b border-slate-200 bg-slate-100 px-5 py-2 dark:border-[#34465c] dark:bg-[#1f2937]">
+          <div className="flex items-center gap-1 rounded-lg border border-slate-300 bg-white p-1 dark:border-[#34465c] dark:bg-[#102033]">
+            <button
+              className="grid h-8 w-8 place-items-center rounded-md text-slate-600 transition hover:bg-slate-100 hover:text-cyan-700 disabled:cursor-not-allowed disabled:opacity-40 dark:text-[#b7c4d4] dark:hover:bg-[#172a3f] dark:hover:text-cyan-300"
+              type="button"
+              aria-label="Previous page"
+              title="Previous page"
+              disabled={activePage <= 1}
+              onClick={() => goToPage(activePage - 1)}
+            >
+              <ChevronLeft size={17} />
+            </button>
+            <form
+              className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-[#d8e2ed]"
+              onSubmit={(event) => {
+                event.preventDefault();
+                submitPageInput();
+              }}
+            >
+              <input
+                className="h-8 w-14 rounded-md border border-slate-300 bg-white px-2 text-center text-sm font-semibold text-slate-950 outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/30 dark:border-[#2f4358] dark:bg-[#071624] dark:text-[#f4f8ff]"
+                type="number"
+                min={1}
+                max={totalPages}
+                value={pageInput}
+                aria-label="Page number"
+                onBlur={submitPageInput}
+                onChange={(event) => setPageInput(event.target.value)}
+              />
+              <span className="text-slate-400 dark:text-[#738398]">/</span>
+              <span className="min-w-6 text-center">{totalPages}</span>
+            </form>
+            <button
+              className="grid h-8 w-8 place-items-center rounded-md text-slate-600 transition hover:bg-slate-100 hover:text-cyan-700 disabled:cursor-not-allowed disabled:opacity-40 dark:text-[#b7c4d4] dark:hover:bg-[#172a3f] dark:hover:text-cyan-300"
+              type="button"
+              aria-label="Next page"
+              title="Next page"
+              disabled={activePage >= totalPages}
+              onClick={() => goToPage(activePage + 1)}
+            >
+              <ChevronRight size={17} />
+            </button>
+          </div>
+
+          <div className="h-8 border-l border-slate-300 dark:border-[#34465c]" />
+
+          <div className="flex items-center gap-1 rounded-lg border border-slate-300 bg-white p-1 dark:border-[#34465c] dark:bg-[#102033]">
+            <span className="min-w-16 px-2 text-center text-sm font-semibold text-slate-700 dark:text-[#d8e2ed]">{zoomPercent}%</span>
+            <button
+              className="grid h-8 w-8 place-items-center rounded-md text-slate-600 transition hover:bg-slate-100 hover:text-cyan-700 dark:text-[#b7c4d4] dark:hover:bg-[#172a3f] dark:hover:text-cyan-300"
+              type="button"
+              aria-label="Zoom out"
+              title="Zoom out"
+              onClick={() => zoomCapabilityRef.current?.zoomOut?.()}
+            >
+              <ZoomOut size={17} />
+            </button>
+            <button
+              className="grid h-8 w-8 place-items-center rounded-md text-slate-600 transition hover:bg-slate-100 hover:text-cyan-700 dark:text-[#b7c4d4] dark:hover:bg-[#172a3f] dark:hover:text-cyan-300"
+              type="button"
+              aria-label="Zoom in"
+              title="Zoom in"
+              onClick={() => zoomCapabilityRef.current?.zoomIn?.()}
+            >
+              <ZoomIn size={17} />
+            </button>
+            <button
+              className="grid h-8 w-8 place-items-center rounded-md text-slate-600 transition hover:bg-slate-100 hover:text-cyan-700 dark:text-[#b7c4d4] dark:hover:bg-[#172a3f] dark:hover:text-cyan-300"
+              type="button"
+              aria-label="Reset zoom"
+              title="Reset zoom"
+              onClick={() => zoomCapabilityRef.current?.requestZoom?.(1)}
+            >
+              <RotateCcw size={16} />
+            </button>
+          </div>
+
+          <div className="h-8 border-l border-slate-300 dark:border-[#34465c]" />
+
+          <form
+            className="flex min-w-[220px] flex-1 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-1 dark:border-[#34465c] dark:bg-[#102033] max-sm:min-w-full"
+            onSubmit={(event) => {
+              event.preventDefault();
+              submitSearch();
+            }}
+          >
+            <Search className="shrink-0 text-slate-500 dark:text-[#9ba8b7]" size={17} />
+            <input
+              className="h-8 min-w-0 flex-1 bg-transparent text-sm text-slate-950 outline-none placeholder:text-slate-400 dark:text-[#f4f8ff] dark:placeholder:text-[#66788c]"
+              type="search"
+              value={searchQuery}
+              placeholder="Search in document"
+              aria-label="Search in document"
+              onChange={(event) => setSearchQuery(event.target.value)}
+            />
+          </form>
+        </div>
         <div className="min-h-0 flex-1">
           <PDFViewer
             key={`${viewerVersion}-${appTheme}`}
@@ -404,35 +554,13 @@ export function PostDetailPanel({ category, isError, isLoading, post }: PostDeta
                       id: "main-toolbar",
                       position: { placement: "top", slot: "main", order: 0 },
                       permanent: true,
-                      items: [
-                        {
-                          type: "group",
-                          id: "left-group",
-                          alignment: "start",
-                          gap: 2,
-                          items: [
-                            { type: "custom", id: "page-controls-inline", componentId: "page-controls", categories: ["page"] },
-                            { type: "divider", id: "page-zoom-divider", orientation: "vertical" },
-                            { type: "custom", id: "zoom-toolbar", componentId: "zoom-toolbar", categories: ["zoom"] },
-                            { type: "divider", id: "zoom-tools-divider", orientation: "vertical" },
-                            { type: "command-button", id: "search-button", commandId: "panel:toggle-search", variant: "icon", categories: ["panel", "panel-search"] }
-                          ]
-                        },
-                        { type: "spacer", id: "spacer-1", flex: true }
-                      ]
+                      items: []
                     }
                   },
                   menus: {},
                   sidebars: {},
                   modals: {},
-                  overlays: {
-                    "page-controls": {
-                      id: "page-controls",
-                      position: { anchor: "bottom-center", offset: { bottom: "1.5rem" } },
-                      content: { type: "component", componentId: "page-controls" },
-                      defaultEnabled: false
-                    }
-                  },
+                  overlays: {},
                   selectionMenus: {}
                 } as any
               },
