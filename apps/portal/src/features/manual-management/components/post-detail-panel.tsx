@@ -197,13 +197,14 @@ export function PostDetailPanel({ category, isError, isLoading, post }: PostDeta
   };
 
   const goToPage = (page: number) => {
-    setActivePage(page);
+    const nextPage = Math.max(page, 1);
+    setActivePage(nextPage);
     const scrollCapability = scrollCapabilityRef.current;
     if (scrollCapability?.scrollToPage) {
-      scrollCapability.scrollToPage({ pageNumber: page });
+      scrollCapability.scrollToPage({ pageNumber: nextPage });
       return;
     }
-    setViewerInitialPage(page);
+    setViewerInitialPage(nextPage);
     setViewerVersion((version) => version + 1);
   };
 
@@ -298,12 +299,13 @@ export function PostDetailPanel({ category, isError, isLoading, post }: PostDeta
 
       <section ref={viewerPanelRef} className="flex min-h-0 flex-col bg-[#edf3f8] dark:bg-[#081827]">
         <header className="flex min-h-[58px] items-center justify-between gap-4 border-b border-slate-200 bg-white px-5 dark:border-[#243447] dark:bg-[#0b1a29] max-sm:grid">
-          <div className="min-w-0">
-            <h1 className="m-0 truncate text-lg font-bold text-slate-950 dark:text-[#f4f8ff]">{post.title} (PDF)</h1>
-            <p className="mt-1 truncate text-xs text-slate-500 dark:text-[#9ba8b7]">{post.description}</p>
+          <div className="flex min-w-0 flex-1 items-center gap-4 max-sm:grid">
+            <div className="min-w-0">
+              <h1 className="m-0 truncate text-lg font-bold text-slate-950 dark:text-[#f4f8ff]">{post.title} (PDF)</h1>
+              <p className="mt-1 truncate text-xs text-slate-500 dark:text-[#9ba8b7]">{post.description}</p>
+            </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            <span className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-semibold text-cyan-700 dark:bg-[#102a41] dark:text-cyan-300">Page {activePage}</span>
             <a
               className="grid h-9 w-9 place-items-center rounded-lg border border-slate-200 text-slate-600 transition hover:border-cyan-400 hover:text-cyan-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 dark:border-[#243447] dark:text-[#9ba8b7] dark:hover:text-cyan-300"
               href={localPdfUrl}
@@ -333,6 +335,47 @@ export function PostDetailPanel({ category, isError, isLoading, post }: PostDeta
                 preference: "dark"
               },
               tabBar: "never",
+              ui: {
+                schema: {
+                  id: "support-pdf-viewer",
+                  version: "1.0.0",
+                  toolbars: {
+                    "main-toolbar": {
+                      id: "main-toolbar",
+                      position: { placement: "top", slot: "main", order: 0 },
+                      permanent: true,
+                      items: [
+                        {
+                          type: "group",
+                          id: "left-group",
+                          alignment: "start",
+                          gap: 2,
+                          items: [
+                            { type: "custom", id: "page-controls-inline", componentId: "page-controls", categories: ["page"] },
+                            { type: "divider", id: "page-zoom-divider", orientation: "vertical" },
+                            { type: "custom", id: "zoom-toolbar", componentId: "zoom-toolbar", categories: ["zoom"] },
+                            { type: "divider", id: "zoom-tools-divider", orientation: "vertical" },
+                            { type: "command-button", id: "search-button", commandId: "panel:toggle-search", variant: "icon", categories: ["panel", "panel-search"] }
+                          ]
+                        },
+                        { type: "spacer", id: "spacer-1", flex: true }
+                      ]
+                    }
+                  },
+                  menus: {},
+                  sidebars: {},
+                  modals: {},
+                  overlays: {
+                    "page-controls": {
+                      id: "page-controls",
+                      position: { anchor: "bottom-center", offset: { bottom: "1.5rem" } },
+                      content: { type: "component", componentId: "page-controls" },
+                      defaultEnabled: false
+                    }
+                  },
+                  selectionMenus: {}
+                } as any
+              },
               disabledCategories: [
                 "annotation",
                 "attachment",
@@ -343,7 +386,6 @@ export function PostDetailPanel({ category, isError, isLoading, post }: PostDeta
                 "fullscreen",
                 "history",
                 "pan",
-                "panel",
                 "print",
                 "redaction",
                 "rotate",
