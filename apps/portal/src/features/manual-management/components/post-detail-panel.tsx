@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { BookOpen, Download, Expand, FileText, Loader2 } from "lucide-react";
+import { BookOpen, ChevronDown, ChevronRight, Download, Expand, FileText, Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { Category, Post } from "@/lib/api/support-api";
 import { loadingClass } from "@/features/manual-management/components/manual-management-styles";
@@ -19,6 +19,7 @@ const PDFViewer = dynamic(() => import("@embedpdf/react-pdf-viewer").then((modul
 });
 
 const localPdfUrl = "/tai_lieu_quan_ly_duong_bo_co_muc_luc.pdf";
+// const localPdfUrl = "/RV操作マニュアル（MDフォーマット）_260605.pdf";
 
 type PdfOutlineItem = {
   id: string;
@@ -119,6 +120,7 @@ function inferPageFromPrintedToc(title: string, pagesByTitle: Map<string, number
 
 export function PostDetailPanel({ category, isError, isLoading, post }: PostDetailPanelProps) {
   const [outline, setOutline] = useState<PdfOutlineItem[]>([]);
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
   const [outlineLoading, setOutlineLoading] = useState(true);
   const [activePage, setActivePage] = useState(1);
   const [viewerVersion, setViewerVersion] = useState(0);
@@ -149,7 +151,17 @@ export function PostDetailPanel({ category, isError, isLoading, post }: PostDeta
         );
 
         if (!cancelled) {
-          setOutline(flattenedItems.filter((item) => item.title.trim()));
+          const nextOutline = flattenedItems.filter((item) => item.title.trim());
+          setOutline(nextOutline);
+          setExpandedSections((current) => {
+            const next = { ...current };
+            nextOutline.forEach((item) => {
+              if (item.level === 0 && next[item.id] === undefined) {
+                next[item.id] = true;
+              }
+            });
+            return next;
+          });
         }
       } catch {
         if (!cancelled) setOutline([]);
@@ -195,6 +207,30 @@ export function PostDetailPanel({ category, isError, isLoading, post }: PostDeta
     setViewerVersion((version) => version + 1);
   };
 
+  const outlineItems = outline.map((item, index) => ({
+    ...item,
+    hasChildren: item.level === 0 && (outline[index + 1]?.level ?? 0) > item.level
+  }));
+
+  const visibleOutlineItems = outlineItems.filter((item, index) => {
+    if (item.level === 0) return true;
+    const parentSection = outlineItems
+      .slice(0, index)
+      .reverse()
+      .find((candidate) => candidate.level === 0);
+    return parentSection ? expandedSections[parentSection.id] !== false : true;
+  });
+
+  const handleOutlineClick = (item: (typeof outlineItems)[number]) => {
+    if (item.hasChildren) {
+      setExpandedSections((current) => ({
+        ...current,
+        [item.id]: current[item.id] === false
+      }));
+    }
+    goToPage(item.page);
+  };
+
   const toggleFullscreen = () => {
     const fullscreenElement = document.fullscreenElement;
     if (fullscreenElement) {
@@ -223,7 +259,7 @@ export function PostDetailPanel({ category, isError, isLoading, post }: PostDeta
               </div>
             ) : outline.length ? (
               <ul className="grid list-none gap-1 p-0">
-                {outline.map((item) => (
+                {visibleOutlineItems.map((item) => (
                   <li key={item.id}>
                     <button
                       className={`grid min-h-9 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-md px-3 py-2 text-left text-sm transition hover:bg-cyan-50 hover:text-cyan-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 dark:hover:bg-[#102a41] dark:hover:text-cyan-300 ${
@@ -231,10 +267,21 @@ export function PostDetailPanel({ category, isError, isLoading, post }: PostDeta
                       }`}
                       style={{ paddingLeft: 12 + item.level * 18 }}
                       type="button"
-                      onClick={() => goToPage(item.page)}
+                      aria-expanded={item.hasChildren ? expandedSections[item.id] !== false : undefined}
+                      onClick={() => handleOutlineClick(item)}
                     >
                       <span className="inline-flex min-w-0 items-center gap-2">
-                        {item.level === 0 ? <BookOpen className="shrink-0" size={15} /> : <FileText className="shrink-0" size={14} />}
+                        {item.hasChildren ? (
+                          expandedSections[item.id] === false ? (
+                            <ChevronRight className="shrink-0" size={15} />
+                          ) : (
+                            <ChevronDown className="shrink-0" size={15} />
+                          )
+                        ) : item.level === 0 ? (
+                          <BookOpen className="shrink-0" size={15} />
+                        ) : (
+                          <FileText className="shrink-0" size={14} />
+                        )}
                         <span className="truncate">{item.title}</span>
                       </span>
                       <span className="text-xs font-semibold text-slate-500 dark:text-[#8ea0b5]">{item.page}</span>
