@@ -1,18 +1,17 @@
 "use client";
 
-import { BookOpen, ChevronLeft, ChevronRight, FileQuestion, Headphones, Map, MapPin, MessageSquare, Video, X } from "lucide-react";
+import { BookOpen, ChevronLeft, ChevronRight, Headphones, MessageSquare, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { getCategoryIcon } from "@/lib/api/support-api";
-import { useCategoriesQuery } from "@/lib/api/support-queries";
+import { useManualOutlineQuery } from "@/lib/api/support-queries";
 
-type Screen = "home" | "categories";
+type Screen = "home" | "manual";
 
 type SupportWidgetProps = {
   embedded?: boolean;
 };
 
-const CATEGORIES_PER_PAGE = 5;
+const OUTLINE_ITEMS_PER_PAGE = 5;
 const OPERATOR_URL = "https://timerex.net/s/vanan6b_576b/096a4aff";
 
 const actionCardClass =
@@ -21,8 +20,8 @@ const actionCardClass =
 export function SupportWidget({ embedded = false }: SupportWidgetProps) {
   const [isOpen, setIsOpen] = useState(true);
   const [screen, setScreen] = useState<Screen>("home");
-  const [categoryPage, setCategoryPage] = useState(1);
-  const { data: categories = [], isLoading: categoriesLoading } = useCategoriesQuery();
+  const [outlinePage, setOutlinePage] = useState(1);
+  const { data: outlineItems = [], isLoading: outlineLoading } = useManualOutlineQuery();
   const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -38,11 +37,11 @@ export function SupportWidget({ embedded = false }: SupportWidgetProps) {
   }, [isOpen, screen]);
 
   useEffect(() => {
-    setCategoryPage((current) => Math.min(current, Math.max(1, Math.ceil(categories.length / CATEGORIES_PER_PAGE))));
-  }, [categories.length]);
+    setOutlinePage((current) => Math.min(current, Math.max(1, Math.ceil(outlineItems.length / OUTLINE_ITEMS_PER_PAGE))));
+  }, [outlineItems.length]);
 
-  const categoryPageCount = Math.max(1, Math.ceil(categories.length / CATEGORIES_PER_PAGE));
-  const visibleCategories = categories.slice((categoryPage - 1) * CATEGORIES_PER_PAGE, categoryPage * CATEGORIES_PER_PAGE);
+  const outlinePageCount = Math.max(1, Math.ceil(outlineItems.length / OUTLINE_ITEMS_PER_PAGE));
+  const visibleOutlineItems = outlineItems.slice((outlinePage - 1) * OUTLINE_ITEMS_PER_PAGE, outlinePage * OUTLINE_ITEMS_PER_PAGE);
 
   const closeWidget = () => {
     if (embedded) {
@@ -51,9 +50,9 @@ export function SupportWidget({ embedded = false }: SupportWidgetProps) {
     setIsOpen(false);
   };
 
-  const openCategories = () => {
-    setCategoryPage(1);
-    setScreen("categories");
+  const openManualOutline = () => {
+    setOutlinePage(1);
+    setScreen("manual");
   };
 
   return (
@@ -86,7 +85,7 @@ export function SupportWidget({ embedded = false }: SupportWidgetProps) {
           {screen === "home" ? (
             <div className={`grid gap-3 px-4 py-[18px] ${embedded ? "px-4 pb-[18px] pt-[22px]" : ""}`}>
               <p className="mb-2 mt-0 text-sm leading-[1.7] text-slate-600 dark:text-[#d6dee8]">こんにちは。どのようなご用件でしょうか？ 以下のオプションからお選びください。</p>
-              <button className={actionCardClass} type="button" onClick={openCategories}>
+              <button className={actionCardClass} type="button" onClick={openManualOutline}>
                 <BookOpen size={30} />
                 <span>
                   <strong>使い方を調べる</strong>
@@ -101,46 +100,44 @@ export function SupportWidget({ embedded = false }: SupportWidgetProps) {
                 </span>
               </a>
             </div>
-          ) : categoriesLoading ? (
-            <div className={`flex items-center justify-center px-4 ${embedded ? "min-h-[calc(100vh-57px)]" : "min-h-[360px]"}`} aria-label="Loading categories" role="status">
+          ) : outlineLoading ? (
+            <div className={`flex items-center justify-center px-4 ${embedded ? "min-h-[calc(100vh-57px)]" : "min-h-[360px]"}`} aria-label="Loading manual outline" role="status">
               <div className="h-14 w-14 animate-spin rounded-full border-[5px] border-cyan-500/20 border-t-cyan-400 shadow-[0_0_22px_rgba(34,211,238,0.45)]" />
             </div>
           ) : (
             <div className={`grid gap-3 px-4 pb-[18px] pt-5 ${embedded ? "min-h-0 flex-1 px-4 pb-3 pt-[22px]" : ""}`}>
-              {visibleCategories.map((category) => {
-                const Fallback = category.slug === "map-guide" ? Map : category.slug === "monitoring-point-guide" ? MapPin : category.slug === "video-guide" ? Video : category.slug === "faq" ? MessageSquare : FileQuestion;
-                const CardIcon = getCategoryIcon(category) ?? Fallback;
-                const href = `/support/categories/${category.slug}`;
+              {visibleOutlineItems.map((outlineItem) => {
+                const href = `/support/manual?outline=${encodeURIComponent(outlineItem.id)}`;
                 return (
-                  <Link className={actionCardClass} key={category.id} href={href} target="_blank" rel="noopener noreferrer">
-                    <CardIcon size={32} />
+                  <Link className={actionCardClass} key={outlineItem.id} href={href} target="_blank" rel="noopener noreferrer">
+                    <BookOpen size={32} />
                     <span>
-                      <strong>{category.title}</strong>
-                      <small>{category.description}</small>
+                      <strong>{outlineItem.title}</strong>
+                      <small>PDF manual page {outlineItem.page}</small>
                     </span>
                   </Link>
                 );
               })}
 
-              {categoryPageCount > 1 ? (
+              {outlinePageCount > 1 ? (
                 <div className="flex items-center justify-between gap-2 pt-1 text-xs text-slate-500 dark:text-[#9ba8b7]">
                   <button
                     className="inline-flex h-8 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 transition hover:border-cyan-400 hover:text-cyan-600 disabled:cursor-not-allowed disabled:opacity-40 dark:border-[#243447] dark:bg-[#0f1e2e] dark:hover:text-cyan-300"
                     type="button"
-                    disabled={categoryPage === 1}
-                    onClick={() => setCategoryPage((current) => Math.max(1, current - 1))}
+                    disabled={outlinePage === 1}
+                    onClick={() => setOutlinePage((current) => Math.max(1, current - 1))}
                   >
                     <ChevronLeft size={14} />
                     <span>前へ</span>
                   </button>
                   <span>
-                    {categoryPage} / {categoryPageCount}
+                    {outlinePage} / {outlinePageCount}
                   </span>
                   <button
                     className="inline-flex h-8 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 transition hover:border-cyan-400 hover:text-cyan-600 disabled:cursor-not-allowed disabled:opacity-40 dark:border-[#243447] dark:bg-[#0f1e2e] dark:hover:text-cyan-300"
                     type="button"
-                    disabled={categoryPage === categoryPageCount}
-                    onClick={() => setCategoryPage((current) => Math.min(categoryPageCount, current + 1))}
+                    disabled={outlinePage === outlinePageCount}
+                    onClick={() => setOutlinePage((current) => Math.min(outlinePageCount, current + 1))}
                   >
                     <span>次へ</span>
                     <ChevronRight size={14} />

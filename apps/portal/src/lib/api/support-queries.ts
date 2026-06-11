@@ -1,50 +1,23 @@
 "use client";
 
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { getCategories, getPostBySlug, getPosts, getPostsByCategory, getSupportMenuTree } from "@/lib/api/support-api";
+import { useQuery } from "@tanstack/react-query";
+import { getManualOutline, getManualPdf } from "@/lib/api/support-api";
 
 export const supportQueryKeys = {
-  categories: ["support", "categories"] as const,
-  posts: ["support", "posts"] as const,
-  postsByCategory: (categoryId: number) => ["support", "posts", "category", categoryId] as const,
-  postDetail: (categoryId: number, postSlug: string) => ["support", "posts", "detail", categoryId, postSlug] as const,
-  menuTree: (keyword: string) => ["support", "menuTree", keyword] as const
+  manualOutline: ["support", "manual", "outline"] as const,
+  manualPdf: ["support", "manual", "pdf"] as const
 };
 
-export function useCategoriesQuery() {
+export function useManualOutlineQuery() {
   return useQuery({
-    queryKey: supportQueryKeys.categories,
-    queryFn: getCategories
+    queryKey: supportQueryKeys.manualOutline,
+    queryFn: getManualOutline
   });
 }
 
-export function usePostsQuery() {
+export function useManualPdfQuery() {
   return useQuery({
-    queryKey: supportQueryKeys.posts,
-    queryFn: getPosts
-  });
-}
-
-export function usePostsByCategoryQuery(categoryId?: number) {
-  return useQuery({
-    queryKey: categoryId ? supportQueryKeys.postsByCategory(categoryId) : ["support", "posts", "category", "none"],
-    queryFn: () => getPostsByCategory(categoryId as number),
-    enabled: Boolean(categoryId)
-  });
-}
-
-export function usePostDetailQuery(categoryId?: number, postSlug?: string) {
-  return useQuery({
-    queryKey: categoryId && postSlug ? supportQueryKeys.postDetail(categoryId, postSlug) : ["support", "posts", "detail", "none"],
-    queryFn: () => getPostBySlug(categoryId as number, postSlug as string),
-    enabled: Boolean(categoryId && postSlug)
-  });
-}
-
-export function useMenuTreeQuery(keyword = "") {
-  return useQuery({
-    queryKey: supportQueryKeys.menuTree(keyword),
-    queryFn: () => getSupportMenuTree(keyword),
-    placeholderData: keepPreviousData
+    queryKey: supportQueryKeys.manualPdf,
+    queryFn: getManualPdf
   });
 }

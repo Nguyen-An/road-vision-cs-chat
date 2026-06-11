@@ -2,7 +2,7 @@
 
 Source code này gồm 2 phần:
 
-- `apps/portal`: Support Portal dùng Next.js App Router. Đây là domain hiển thị widget content, category list, post list và post detail.
+- `apps/portal`: Support Portal dùng Next.js App Router. Đây là domain hiển thị widget content và PDF manual viewer.
 - `packages/widget`: JavaScript SDK nhúng vào website khác qua thẻ `<script>`. SDK render floating bubble, mở popup iframe hoặc redirect sang portal.
 
 Hiện chưa có backend thật, dữ liệu tạm được lấy từ fake data trong `apps/portal/src/lib/data-cs.ts`.
@@ -43,17 +43,17 @@ Các route chính:
 
 ```txt
 /support
-/support/categories
-/support/categories/:categorySlug
-/support/categories/:categorySlug/posts/:postSlug
+/support/manual
+/support/manual?outline=:outlineId
+/support/manual?page=:pageNumber
 /chat
 ```
 
 Ví dụ:
 
 ```txt
-http://localhost:3000/support/categories/map-guide
-http://localhost:3000/support/categories/map-guide/posts/map-basic-operation
+http://localhost:3000/support/manual
+http://localhost:3000/support/manual?outline=chapter-map
 ```
 
 ## Build
@@ -133,10 +133,10 @@ Khi click bubble:
 - `mode: "iframe"`: mở popup iframe ngay trên website đang nhúng.
 - `mode: "redirect"`: mở portal trong tab mới.
 
-Trong iframe, widget chỉ hiển thị màn hình support home/category. Khi click vào category hoặc post list/detail, trình duyệt sẽ chuyển sang domain portal, ví dụ:
+Trong iframe, widget hiển thị màn hình support home/manual outline. Khi click vào mục lục PDF, trình duyệt sẽ chuyển sang domain portal, ví dụ:
 
 ```txt
-http://localhost:3000/support/categories/map-guide
+http://localhost:3000/support/manual?outline=chapter-map
 ```
 
 ## Ví Dụ HTML
@@ -177,6 +177,8 @@ tenantId
 API mock hiện có:
 
 ```txt
+GET  /api/support/manual/outline
+GET  /api/support/manual/pdf
 GET  /api/widget/tenants/:tenantId/settings
 POST /api/widget/context-token
 ```

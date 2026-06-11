@@ -6,8 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useTheme } from "@/app/theme-provider";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import type { Category, Post } from "@/lib/api/support-api";
-import { loadingClass } from "@/features/manual-management/components/manual-management-styles";
+import type { ManualPdf, OutlineItem } from "@/lib/api/support-api";
 
 const PDFViewer = dynamic(() => import("@embedpdf/react-pdf-viewer").then((module) => module.PDFViewer), {
   ssr: false,
@@ -21,8 +20,15 @@ const PDFViewer = dynamic(() => import("@embedpdf/react-pdf-viewer").then((modul
   )
 });
 
-const localPdfUrl = "/tai_lieu_quan_ly_duong_bo_co_muc_luc.pdf";
 const maxUploadSizeBytes = 20 * 1024 * 1024;
+const defaultManualPdf: Required<ManualPdf> = {
+  pdfUrl: "/tai_lieu_quan_ly_duong_bo_co_muc_luc.pdf",
+  fileName: "tai_lieu_quan_ly_duong_bo_co_muc_luc.pdf",
+  updatedAt: "2026/06/11 14:30",
+  size: "86.6KB"
+};
+const defaultManualTitle = "PDF Manual";
+const defaultManualDescription = "User manual document";
 const initialPdfFileInfo = {
   name: "tai_lieu_quan_ly_duong_bo_co_muc_luc.pdf",
   updatedAt: "2026/06/11 14:30",
@@ -44,11 +50,13 @@ type PdfOutlineSourceItem = {
   level?: number;
 };
 
-type PostDetailPanelProps = {
-  category: Category;
-  isError: boolean;
-  isLoading: boolean;
-  post?: Post;
+type ManualViewerProps = {
+  pdf?: ManualPdf;
+  outline?: OutlineItem[];
+  title?: string;
+  description?: string;
+  outlineTitle?: string;
+  initialPage?: number;
 };
 
 type PdfFileInfo = typeof initialPdfFileInfo;
@@ -72,6 +80,19 @@ type TocDialogState =
 function flattenOutline(items: PdfOutlineSourceItem[] | null | undefined, level = 0): PdfOutlineSourceItem[] {
   if (!items?.length) return [];
   return items.flatMap((item) => [Object.assign({}, item, { level }), ...flattenOutline(item.items, level + 1)]);
+}
+
+function flattenManualOutline(items: OutlineItem[] | undefined, level = 0): PdfOutlineItem[] {
+  if (!items?.length) return [];
+  return items.flatMap((item) => [
+    {
+      id: item.id,
+      title: item.title,
+      page: item.page,
+      level
+    },
+    ...flattenManualOutline(item.children, level + 1)
+  ]);
 }
 
 function normalizeOutlineTitle(title: string) {
@@ -155,10 +176,23 @@ function formatUpdatedAt(date: Date) {
   return `${date.getFullYear()}/${pad(date.getMonth() + 1)}/${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
-export function PostDetailPanel({ category, isError, isLoading, post }: PostDetailPanelProps) {
+function getFileNameFromUrl(pdfUrl: string) {
+  const cleanUrl = pdfUrl.split("?")[0]?.split("#")[0] ?? pdfUrl;
+  return decodeURIComponent(cleanUrl.split("/").filter(Boolean).at(-1) ?? "manual.pdf");
+}
+
+function getInitialFileInfo(pdf: ManualPdf): PdfFileInfo {
+  return {
+    name: pdf.fileName ?? getFileNameFromUrl(pdf.pdfUrl),
+    updatedAt: pdf.updatedAt ?? "-",
+    size: pdf.size ?? "-"
+  };
+}
+
+export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, title = defaultManualTitle, description = defaultManualDescription, outlineTitle = title, initialPage = 1 }: ManualViewerProps) {
   const { theme: appTheme } = useTheme();
-  const [currentPdfUrl, setCurrentPdfUrl] = useState(localPdfUrl);
-  const [currentFileInfo, setCurrentFileInfo] = useState<PdfFileInfo>(initialPdfFileInfo);
+  const [currentPdfUrl, setCurrentPdfUrl] = useState(pdf.pdfUrl);
+  const [currentFileInfo, setCurrentFileInfo] = useState<PdfFileInfo>(() => getInitialFileInfo(pdf));
   const [isEditMode, setIsEditMode] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [replaceConfirmed, setReplaceConfirmed] = useState(false);
@@ -169,13 +203,13 @@ export function PostDetailPanel({ category, isError, isLoading, post }: PostDeta
   const [tocDialog, setTocDialog] = useState<TocDialogState>(null);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
   const [outlineLoading, setOutlineLoading] = useState(true);
-  const [activePage, setActivePage] = useState(1);
-  const [pageInput, setPageInput] = useState("1");
+  const [activePage, setActivePage] = useState(initialPage);
+  const [pageInput, setPageInput] = useState(String(initialPage));
   const [totalPages, setTotalPages] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
   const [zoomPercent, setZoomPercent] = useState(100);
   const [viewerVersion, setViewerVersion] = useState(0);
-  const [viewerInitialPage, setViewerInitialPage] = useState(1);
+  const [viewerInitialPage, setViewerInitialPage] = useState(initialPage);
   const viewerPanelRef = useRef<HTMLDivElement>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
   const objectUrlRef = useRef<string | null>(null);
@@ -188,10 +222,36 @@ export function PostDetailPanel({ category, isError, isLoading, post }: PostDeta
   const viewerSrc = viewerInitialPage > 1 ? `${currentPdfUrl}#page=${viewerInitialPage}` : currentPdfUrl;
 
   useEffect(() => {
+    setCurrentPdfUrl(pdf.pdfUrl);
+    setCurrentFileInfo(getInitialFileInfo(pdf));
+    setActivePage(initialPage);
+    setPageInput(String(initialPage));
+    setViewerInitialPage(initialPage);
+    setViewerVersion((version) => version + 1);
+  }, [pdf, initialPage]);
+
+  useEffect(() => {
     let cancelled = false;
 
     async function loadOutline() {
       setOutlineLoading(true);
+
+      const providedOutline = flattenManualOutline(manualOutline);
+      if (providedOutline.length > 0) {
+        setOutline(providedOutline);
+        setExpandedSections((current) => {
+          const next = { ...current };
+          providedOutline.forEach((item) => {
+            if (item.level === 0 && next[item.id] === undefined) {
+              next[item.id] = true;
+            }
+          });
+          return next;
+        });
+        setOutlineLoading(false);
+        return;
+      }
+
       try {
         const pdfjs = await import("pdfjs-dist");
         pdfjs.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).toString();
@@ -233,7 +293,7 @@ export function PostDetailPanel({ category, isError, isLoading, post }: PostDeta
     return () => {
       cancelled = true;
     };
-  }, [currentPdfUrl]);
+  }, [currentPdfUrl, manualOutline]);
 
   useEffect(() => {
     return () => {
@@ -457,9 +517,6 @@ export function PostDetailPanel({ category, isError, isLoading, post }: PostDeta
     void viewerPanelRef.current?.requestFullscreen();
   };
 
-  if (isLoading) return <div className={loadingClass}>Loading post detail...</div>;
-  if (isError || !post) return <div className={loadingClass}>Unable to load post detail.</div>;
-
   return (
     <>
       <div className="grid h-full min-h-0 grid-cols-[320px_minmax(0,1fr)] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-[#243447] dark:bg-[#071624] max-[900px]:grid-cols-1">
@@ -469,7 +526,7 @@ export function PostDetailPanel({ category, isError, isLoading, post }: PostDeta
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="m-0 text-sm font-bold text-slate-700 dark:text-[#d8e2ed]">Mục lục (PDF)</p>
-                <p className="mt-1 truncate text-xs text-slate-500 dark:text-[#738398]">{category.title}</p>
+                <p className="mt-1 truncate text-xs text-slate-500 dark:text-[#738398]">{outlineTitle}</p>
               </div>
               <div className="flex shrink-0 gap-1">
                 <button
@@ -568,8 +625,8 @@ export function PostDetailPanel({ category, isError, isLoading, post }: PostDeta
         <header className="flex min-h-[58px] items-center justify-between gap-4 border-b border-slate-200 bg-white px-5 dark:border-[#243447] dark:bg-[#0b1a29] max-sm:grid">
           <div className="flex min-w-0 flex-1 items-center gap-4 max-sm:grid">
             <div className="min-w-0">
-              <h1 className="m-0 truncate text-lg font-bold text-slate-950 dark:text-[#f4f8ff]">{post.title} (PDF)</h1>
-              <p className="mt-1 truncate text-xs text-slate-500 dark:text-[#9ba8b7]">{post.description}</p>
+              <h1 className="m-0 truncate text-lg font-bold text-slate-950 dark:text-[#f4f8ff]">{title}</h1>
+              <p className="mt-1 truncate text-xs text-slate-500 dark:text-[#9ba8b7]">{description}</p>
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">

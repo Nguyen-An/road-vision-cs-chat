@@ -1,17 +1,7 @@
-import { notFound } from "next/navigation";
-import { ManualManagementView } from "@/features/manual-management/components/manual-management-view";
-import { getCategoryBySlug } from "@/lib/api/support-api";
-
-type PageProps = {
-  params: Promise<{ categorySlug: string }>;
-};
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
-export default async function ManualManagementPage({ params }: PageProps) {
-  const { categorySlug } = await params;
-  const category = await getCategoryBySlug(categorySlug);
-  if (!category) notFound();
-
-  return <ManualManagementView initialCategorySlug={category.slug} />;
+export default function LegacyManualRedirectPage() {
+  redirect("/support/manual");
 }
