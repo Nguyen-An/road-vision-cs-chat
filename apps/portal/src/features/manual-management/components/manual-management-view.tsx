@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight, Grid2X2, List } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { CategoryPostsSection } from "@/features/manual-management/components/category-posts-section";
@@ -14,28 +15,37 @@ import { getCategoryIcon } from "@/lib/api/support-api";
 
 type ManualManagementViewProps = {
   initialCategorySlug: string;
+  initialPostSlug?: string;
 };
 
 type ViewMode = "grid" | "list";
 const POSTS_PER_PAGE = 12;
 
-export function ManualManagementView({ initialCategorySlug }: ManualManagementViewProps) {
+export function ManualManagementView({ initialCategorySlug, initialPostSlug }: ManualManagementViewProps) {
+  const router = useRouter();
   const [selectedCategorySlug, setSelectedCategorySlug] = useState(initialCategorySlug);
-  const [selectedPostSlug, setSelectedPostSlug] = useState<string | undefined>();
+  const [selectedPostSlug, setSelectedPostSlug] = useState<string | undefined>(initialPostSlug);
   const [expandedCategorySlugs, setExpandedCategorySlugs] = useState<string[]>([initialCategorySlug]);
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [menuSearch, setMenuSearch] = useState("");
   const [debouncedMenuSearch, setDebouncedMenuSearch] = useState("");
   const [page, setPage] = useState(1);
+  const isPostDetail = Boolean(selectedPostSlug);
   const { data: categories = [], isLoading: categoriesLoading } = useCategoriesQuery();
   const { data: menuTree = [] } = useMenuTreeQuery(debouncedMenuSearch);
 
   const category = categories.find((item) => item.slug === selectedCategorySlug);
-  const { data: categoryPosts = [], isLoading: postsLoading, isError: postsError } = usePostsByCategoryQuery(category?.id);
+  const { data: categoryPosts = [], isLoading: postsLoading, isError: postsError } = usePostsByCategoryQuery(isPostDetail ? undefined : category?.id);
   const { data: selectedPost, isLoading: postDetailLoading, isError: postDetailError } = usePostDetailQuery(category?.id, selectedPostSlug);
   const articleHtml = useMemo(() => (selectedPost ? renderMarkdown(selectedPost.content) : ""), [selectedPost]);
   const pageCount = Math.max(1, Math.ceil(categoryPosts.length / POSTS_PER_PAGE));
   const visiblePosts = categoryPosts.slice((page - 1) * POSTS_PER_PAGE, page * POSTS_PER_PAGE);
+
+  useEffect(() => {
+    setSelectedCategorySlug(initialCategorySlug);
+    setSelectedPostSlug(initialPostSlug);
+    setExpandedCategorySlugs((current) => (current.includes(initialCategorySlug) ? current : [...current, initialCategorySlug]));
+  }, [initialCategorySlug, initialPostSlug]);
 
   useEffect(() => {
     setPage(1);
@@ -64,6 +74,7 @@ export function ManualManagementView({ initialCategorySlug }: ManualManagementVi
   }
 
   const CategoryIcon = getCategoryIcon(category);
+  const contentLayoutClass = isPostDetail ? `${containerClass} py-14` : layoutClass;
 
   const toggleCategory = (categorySlug: string) => {
     setExpandedCategorySlugs((current) => (current.includes(categorySlug) ? current.filter((slug) => slug !== categorySlug) : [...current, categorySlug]));
@@ -73,12 +84,12 @@ export function ManualManagementView({ initialCategorySlug }: ManualManagementVi
     setSelectedCategorySlug(categorySlug);
     setSelectedPostSlug(undefined);
     setPage(1);
+    router.push(`/support/categories/${categorySlug}`);
   };
 
   const selectPost = (categorySlug: string, postSlug: string) => {
-    setSelectedCategorySlug(categorySlug);
-    setSelectedPostSlug(postSlug);
     setExpandedCategorySlugs((current) => (current.includes(categorySlug) ? current : [...current, categorySlug]));
+    router.push(`/support/categories/${categorySlug}/${postSlug}`);
   };
 
   const viewButtonClass = (mode: ViewMode) =>
@@ -113,32 +124,36 @@ export function ManualManagementView({ initialCategorySlug }: ManualManagementVi
             ) : null}
           </nav>
           <div className="flex items-center gap-2">
-            <div className="flex gap-1.5 rounded-lg border border-slate-200 bg-white p-1.5 dark:border-[#243447] dark:bg-[#102033]" role="group" aria-label="表示形式">
-              <button className={viewButtonClass("grid")} type="button" aria-pressed={viewMode === "grid"} onClick={() => setViewMode("grid")}>
-                <Grid2X2 size={16} />
-              </button>
-              <button className={viewButtonClass("list")} type="button" aria-pressed={viewMode === "list"} onClick={() => setViewMode("list")}>
-                <List size={16} />
-              </button>
-            </div>
+            {!isPostDetail ? (
+              <div className="flex gap-1.5 rounded-lg border border-slate-200 bg-white p-1.5 dark:border-[#243447] dark:bg-[#102033]" role="group" aria-label="表示形式">
+                <button className={viewButtonClass("grid")} type="button" aria-pressed={viewMode === "grid"} onClick={() => setViewMode("grid")}>
+                  <Grid2X2 size={16} />
+                </button>
+                <button className={viewButtonClass("list")} type="button" aria-pressed={viewMode === "list"} onClick={() => setViewMode("list")}>
+                  <List size={16} />
+                </button>
+              </div>
+            ) : null}
             <ThemeToggle />
           </div>
         </div>
       </header>
 
-      <div className={layoutClass}>
-        <CategorySidebar
-          menuTree={menuTree}
-          activeCategorySlug={selectedCategorySlug}
-          activePostSlug={selectedPostSlug}
-          count={categoryPosts.length}
-          menuSearch={menuSearch}
-          expandedCategorySlugs={expandedCategorySlugs}
-          onMenuSearchChange={setMenuSearch}
-          onSelectCategory={selectCategory}
-          onSelectPost={selectPost}
-          onToggleCategory={toggleCategory}
-        />
+      <div className={contentLayoutClass}>
+        {!isPostDetail ? (
+          <CategorySidebar
+            menuTree={menuTree}
+            activeCategorySlug={selectedCategorySlug}
+            activePostSlug={selectedPostSlug}
+            count={categoryPosts.length}
+            menuSearch={menuSearch}
+            expandedCategorySlugs={expandedCategorySlugs}
+            onMenuSearchChange={setMenuSearch}
+            onSelectCategory={selectCategory}
+            onSelectPost={selectPost}
+            onToggleCategory={toggleCategory}
+          />
+        ) : null}
 
         <section>
           {selectedPostSlug ? (
@@ -163,3 +178,4 @@ export function ManualManagementView({ initialCategorySlug }: ManualManagementVi
     </main>
   );
 }
+
