@@ -5,7 +5,6 @@
   "packageManager": "pnpm@10.12.1",
   "scripts": {
     "dev": "corepack pnpm --filter @roadvision/support-portal dev",
-    "dev:api": "corepack pnpm --filter @roadvision/moc-api dev",
     "build": "corepack pnpm -r build",
     "build:portal": "corepack pnpm --filter @roadvision/support-portal build",
     "build:widget": "corepack pnpm --filter @roadvision/support-widget build",

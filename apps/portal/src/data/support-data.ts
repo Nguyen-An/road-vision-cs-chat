@@ -1,4 +1,6 @@
-{
+import type { Category, Post, SupportMenuNode } from "@/lib/api/support-api";
+
+const supportData = ({
   "categories": [
     {
       "id": 1,
@@ -457,4 +459,47 @@
       ]
     }
   ]
+}) as {
+  categories: Category[];
+  posts: Post[];
+  menuTree: SupportMenuNode[];
+};
+
+function sortByOrder<T extends { order: number }>(items: T[]) {
+  return [...items].sort((a, b) => a.order - b.order);
+}
+
+function filterMenuTreeByKeyword(menuTree: SupportMenuNode[], keyword: string): SupportMenuNode[] {
+  const normalizedKeyword = keyword.trim().toLowerCase();
+  if (!normalizedKeyword) return menuTree;
+
+  return menuTree.reduce<SupportMenuNode[]>((items, category) => {
+    const categoryMatched = category.title.toLowerCase().includes(normalizedKeyword);
+    const children = category.children?.filter((post) => post.title.toLowerCase().includes(normalizedKeyword)) ?? [];
+    if (!categoryMatched && children.length === 0) return items;
+    items.push({
+      ...category,
+      children: categoryMatched ? category.children : children
+    });
+    return items;
+  }, []);
+}
+
+export function getSupportCategoriesData() {
+  return sortByOrder(supportData.categories);
+}
+
+export function getSupportPostsData(filters: { categoryId?: number; slug?: string } = {}) {
+  let posts = supportData.posts;
+  if (filters.categoryId !== undefined) {
+    posts = posts.filter((post) => post.categoryId === filters.categoryId);
+  }
+  if (filters.slug) {
+    posts = posts.filter((post) => post.slug === filters.slug);
+  }
+  return sortByOrder(posts);
+}
+
+export function getSupportMenuTreeData(keyword = "") {
+  return filterMenuTreeByKeyword(supportData.menuTree, keyword);
 }

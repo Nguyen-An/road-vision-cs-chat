@@ -67,10 +67,14 @@ export function getCategoryIcon(category: Category) {
   return categoryIconMap[category.iconName] ?? FileText;
 }
 
-const apiBaseUrl = process.env.NEXT_PUBLIC_SUPPORT_API_BASE_URL ?? "http://localhost:8000";
+const supportApiBasePath = "/api/support";
+
+async function getSupportData() {
+  return import("@/data/support-data");
+}
 
 async function apiFetch<T>(path: string): Promise<T> {
-  const response = await fetch(`${apiBaseUrl}${path}`, { cache: "no-store" });
+  const response = await fetch(`${supportApiBasePath}${path}`, { cache: "no-store" });
   if (!response.ok) {
     throw new Error(`Support API request failed: ${response.status} ${path}`);
   }
@@ -78,39 +82,34 @@ async function apiFetch<T>(path: string): Promise<T> {
 }
 
 export async function getCategories() {
+  if (typeof window === "undefined") {
+    const { getSupportCategoriesData } = await getSupportData();
+    return getSupportCategoriesData();
+  }
+
   const categories = await apiFetch<Category[]>("/categories");
   return categories.sort((a, b) => a.order - b.order);
 }
 
 export async function getPosts() {
+  if (typeof window === "undefined") {
+    const { getSupportPostsData } = await getSupportData();
+    return getSupportPostsData();
+  }
+
   const posts = await apiFetch<Post[]>("/posts");
   return posts.sort((a, b) => a.order - b.order);
 }
 
-function filterMenuTreeByKeyword(menuTree: SupportMenuNode[], keyword: string): SupportMenuNode[] {
-  const normalizedKeyword = keyword.trim().toLowerCase();
-  if (!normalizedKeyword) return menuTree;
-
-  return menuTree.reduce<SupportMenuNode[]>((items, category) => {
-    const categoryMatched = category.title.toLowerCase().includes(normalizedKeyword);
-    const children = category.children?.filter((post) => post.title.toLowerCase().includes(normalizedKeyword)) ?? [];
-    if (!categoryMatched && children.length === 0) return items;
-    items.push({
-      ...category,
-      children: categoryMatched ? category.children : children
-    });
-    return items;
-  }, []);
-}
-
 export async function getSupportMenuTree(keyword = "") {
+  if (typeof window === "undefined") {
+    const { getSupportMenuTreeData } = await getSupportData();
+    return getSupportMenuTreeData(keyword);
+  }
+
   const params = new URLSearchParams();
   if (keyword.trim()) params.set("q", keyword.trim());
-  let menuTree = await apiFetch<SupportMenuNode[]>(`/menuTree${params.toString() ? `?${params.toString()}` : ""}`);
-  if (keyword.trim() && menuTree.length === 0) {
-    menuTree = await apiFetch<SupportMenuNode[]>("/menuTree");
-  }
-  return filterMenuTreeByKeyword(menuTree, keyword);
+  return apiFetch<SupportMenuNode[]>(`/menu-tree${params.toString() ? `?${params.toString()}` : ""}`);
 }
 
 export async function getCategoryBySlug(slug: string) {
@@ -119,12 +118,22 @@ export async function getCategoryBySlug(slug: string) {
 }
 
 export async function getPostsByCategory(categoryId: number) {
+  if (typeof window === "undefined") {
+    const { getSupportPostsData } = await getSupportData();
+    return getSupportPostsData({ categoryId });
+  }
+
   const params = new URLSearchParams({ categoryId: String(categoryId) });
   const posts = await apiFetch<Post[]>(`/posts?${params.toString()}`);
   return posts.sort((a, b) => a.order - b.order);
 }
 
 export async function getPostBySlug(categoryId: number, postSlug: string) {
+  if (typeof window === "undefined") {
+    const { getSupportPostsData } = await getSupportData();
+    return getSupportPostsData({ categoryId, slug: postSlug })[0];
+  }
+
   const params = new URLSearchParams({ categoryId: String(categoryId), slug: postSlug });
   const posts = await apiFetch<Post[]>(`/posts?${params.toString()}`);
   return posts[0];
