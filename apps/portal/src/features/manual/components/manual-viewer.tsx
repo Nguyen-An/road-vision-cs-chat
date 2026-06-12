@@ -64,18 +64,18 @@ type PdfFileInfo = typeof initialPdfFileInfo;
 type TocMode = "view" | "add" | "edit";
 type TocDialogState =
   | {
-      mode: "add";
-      anchorId: string;
-      position: "above" | "below";
-      title: string;
-      page: string;
-    }
+    mode: "add";
+    anchorId: string;
+    position: "above" | "below";
+    title: string;
+    page: string;
+  }
   | {
-      mode: "edit";
-      itemId: string;
-      title: string;
-      page: string;
-    }
+    mode: "edit";
+    itemId: string;
+    title: string;
+    page: string;
+  }
   | null;
 
 function flattenOutline(items: PdfOutlineSourceItem[] | null | undefined, level = 0): PdfOutlineSourceItem[] {
@@ -215,6 +215,11 @@ function getInitialFileInfo(pdf: ManualPdf): PdfFileInfo {
   };
 }
 
+function normalizePage(page: number, totalPages: number) {
+  if (!Number.isFinite(page)) return 1;
+  return Math.min(Math.max(Math.trunc(page), 1), Math.max(totalPages, 1));
+}
+
 export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, title = defaultManualTitle, description = defaultManualDescription, outlineTitle = title, initialOutlineId, initialPage = 1 }: ManualViewerProps) {
   const { theme: appTheme } = useTheme();
   const [currentPdfUrl, setCurrentPdfUrl] = useState(pdf.pdfUrl);
@@ -248,6 +253,7 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
   const scrollCapabilityRef = useRef<any>(null);
   const searchCapabilityRef = useRef<any>(null);
   const zoomCapabilityRef = useRef<any>(null);
+  const initialOutlineScrollDoneRef = useRef(false);
   const unsubscribePageChangeRef = useRef<(() => void) | null>(null);
   const unsubscribeLayoutReadyRef = useRef<(() => void) | null>(null);
   const unsubscribeZoomChangeRef = useRef<(() => void) | null>(null);
@@ -255,6 +261,8 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
   const viewerSrc = viewerInitialPage > 1 ? `${activePdfUrl}#page=${viewerInitialPage}` : activePdfUrl;
 
   useEffect(() => {
+    // console.log("initialOutlineId: ", initialOutlineId);
+
     if (previewObjectUrlRef.current) {
       URL.revokeObjectURL(previewObjectUrlRef.current);
       previewObjectUrlRef.current = null;
@@ -268,8 +276,10 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
     setPageInput(String(initialPage));
     setViewerInitialPage(initialPage);
     setActiveOutlineId(initialOutlineId);
+    initialOutlineScrollDoneRef.current = false;
     setViewerVersion((version) => version + 1);
   }, [pdf, initialOutlineId, initialPage]);
+
 
   useEffect(() => {
     let cancelled = false;
@@ -324,6 +334,20 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
     setPageInput(String(activePage));
   }, [activePage]);
 
+  const scrollToResolvedPage = (page: number, pages = totalPages) => {
+    const nextPage = normalizePage(page, pages);
+    setActivePage(nextPage);
+    scrollCapabilityRef.current?.scrollToPage?.({ pageNumber: nextPage });
+    return nextPage;
+  };
+
+  const scrollToInitialOutline = (pages: number) => {
+    if (!initialOutlineId || initialOutlineScrollDoneRef.current || pages < 1) return false;
+    initialOutlineScrollDoneRef.current = true;
+    scrollToResolvedPage(initialPage, pages);
+    return true;
+  };
+
   const handleViewerReady = (registry: any) => {
     const scrollPlugin = registry.getPlugin("scroll") ?? registry.getCapabilityProvider("scroll");
     const scrollCapability = scrollPlugin?.provides?.();
@@ -342,8 +366,8 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
       if (event.totalPages) setTotalPages(event.totalPages);
     });
     unsubscribeLayoutReadyRef.current = scrollCapability?.onLayoutReady?.((event: { pageNumber: number; totalPages: number }) => {
-      setActivePage(event.pageNumber);
       setTotalPages(event.totalPages);
+      if (!scrollToInitialOutline(event.totalPages)) setActivePage(event.pageNumber);
     });
     unsubscribeZoomChangeRef.current = zoomCapability?.onZoomChange?.((event: { newZoom: number }) => {
       setZoomPercent(Math.round(event.newZoom * 100));
@@ -355,12 +379,12 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
     if (currentPage) setActivePage(currentPage);
     if (pages) setTotalPages(pages);
     window.setTimeout(() => {
-      scrollCapability?.scrollToPage?.({ pageNumber: activePage });
+      if (!pages || !scrollToInitialOutline(pages)) scrollCapability?.scrollToPage?.({ pageNumber: activePage });
     }, 0);
   };
 
   const goToPage = (page: number) => {
-    const nextPage = Math.min(Math.max(page, 1), totalPages);
+    const nextPage = normalizePage(page, totalPages);
     setActivePage(nextPage);
     const scrollCapability = scrollCapabilityRef.current;
     if (scrollCapability?.scrollToPage) {
@@ -609,452 +633,448 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
   return (
     <>
       <div className="grid h-full min-h-0 grid-cols-[320px_minmax(0,1fr)] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-[#243447] dark:bg-[#071624] max-[900px]:grid-cols-1">
-      <aside className="min-h-0 border-r border-slate-200 bg-slate-50/80 dark:border-[#243447] dark:bg-[#0b1a29] max-[900px]:max-h-[32dvh] max-[900px]:border-b max-[900px]:border-r-0">
-        <div className="flex h-full min-h-0 flex-col">
-          <div className="border-b border-slate-200 px-5 py-4 dark:border-[#243447]">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="m-0 text-sm font-bold text-slate-700 dark:text-[#d8e2ed]">目次（PDF）</p>
-                <p className="mt-1 truncate text-xs text-slate-500 dark:text-[#738398]">{outlineTitle}</p>
-              </div>
-              <div className="flex shrink-0 gap-1">
-                <button
-                  className={`grid h-8 w-8 place-items-center rounded-lg border text-slate-600 transition hover:border-cyan-400 hover:text-cyan-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 disabled:cursor-not-allowed disabled:opacity-40 dark:text-[#9ba8b7] dark:hover:text-cyan-300 ${
-                    !isEditMode && tocMode === "add" ? "border-cyan-400 bg-cyan-50 text-cyan-700 dark:bg-[#102a41] dark:text-cyan-300" : "border-slate-200 dark:border-[#34465c]"
-                  }`}
-                  type="button"
-                  title={isEditMode ? "PDF編集中は使用できません" : "追加"}
-                  aria-label="目次項目を追加"
-                  disabled={isEditMode}
-                  onClick={() => setTocMode((mode) => (mode === "add" ? "view" : "add"))}
-                >
-                  <Plus size={16} />
-                </button>
-                <button
-                  className={`grid h-8 w-8 place-items-center rounded-lg border text-slate-600 transition hover:border-cyan-400 hover:text-cyan-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 disabled:cursor-not-allowed disabled:opacity-40 dark:text-[#9ba8b7] dark:hover:text-cyan-300 ${
-                    !isEditMode && tocMode === "edit" ? "border-cyan-400 bg-cyan-50 text-cyan-700 dark:bg-[#102a41] dark:text-cyan-300" : "border-slate-200 dark:border-[#34465c]"
-                  }`}
-                  type="button"
-                  title={isEditMode ? "PDF編集中は使用できません" : "編集"}
-                  aria-label="目次を編集"
-                  disabled={isEditMode}
-                  onClick={() => setTocMode((mode) => (mode === "edit" ? "view" : "edit"))}
-                >
-                  <SquarePen size={16} />
-                </button>
-              </div>
-            </div>
-          </div>
-          <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-3" aria-label="PDF目次">
-            {outlineLoading ? (
-              <div className="flex items-center gap-2 px-2 py-3 text-sm text-slate-500 dark:text-[#9ba8b7]">
-                <Loader2 className="animate-spin" size={16} />
-                目次を読み込み中...
-              </div>
-            ) : outline.length ? (
-              <ul className="grid list-none gap-1 p-0">
-                {visibleOutlineItems.map((item) => (
-                  <li key={item.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-1">
-                    <button
-                      className={`grid min-h-9 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-md px-3 py-2 text-left text-sm transition hover:bg-cyan-50 hover:text-cyan-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 dark:hover:bg-[#102a41] dark:hover:text-cyan-300 ${
-                        item.id === activeOutlineId ? "bg-cyan-50 text-cyan-700 dark:bg-[#102a41] dark:text-cyan-300" : "text-slate-600 dark:text-[#b7c4d4]"
+        <aside className="min-h-0 border-r border-slate-200 bg-slate-50/80 dark:border-[#243447] dark:bg-[#0b1a29] max-[900px]:max-h-[32dvh] max-[900px]:border-b max-[900px]:border-r-0">
+          <div className="flex h-full min-h-0 flex-col">
+            <div className="border-b border-slate-200 px-5 py-4 dark:border-[#243447]">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="m-0 text-sm font-bold text-slate-700 dark:text-[#d8e2ed]">目次（PDF）</p>
+                  <p className="mt-1 truncate text-xs text-slate-500 dark:text-[#738398]">{outlineTitle}</p>
+                </div>
+                <div className="flex shrink-0 gap-1">
+                  <button
+                    className={`grid h-8 w-8 place-items-center rounded-lg border text-slate-600 transition hover:border-cyan-400 hover:text-cyan-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 disabled:cursor-not-allowed disabled:opacity-40 dark:text-[#9ba8b7] dark:hover:text-cyan-300 ${!isEditMode && tocMode === "add" ? "border-cyan-400 bg-cyan-50 text-cyan-700 dark:bg-[#102a41] dark:text-cyan-300" : "border-slate-200 dark:border-[#34465c]"
                       }`}
-                      style={{ paddingLeft: 12 + item.level * 18 }}
-                      type="button"
-                      aria-expanded={item.hasChildren ? expandedSections[item.id] !== false : undefined}
-                      onClick={() => handleOutlineClick(item)}
-                    >
-                      <span className="inline-flex min-w-0 items-center gap-2">
-                        {item.hasChildren ? (
-                          expandedSections[item.id] === false ? (
-                            <ChevronRight className="shrink-0" size={15} />
-                          ) : (
-                            <ChevronDown className="shrink-0" size={15} />
-                          )
-                        ) : item.level === 0 ? (
-                          <BookOpen className="shrink-0" size={15} />
-                        ) : (
-                          <FileText className="shrink-0" size={14} />
-                        )}
-                        <span className="truncate">{item.title}</span>
-                      </span>
-                      <span className="text-xs font-semibold text-slate-500 dark:text-[#8ea0b5]">{item.page}</span>
-                    </button>
-                    {!isEditMode && tocMode === "add" ? (
-                      <button
-                        className="grid h-8 w-8 place-items-center rounded-md border border-slate-200 text-slate-500 transition hover:border-cyan-400 hover:bg-cyan-50 hover:text-cyan-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 dark:border-[#34465c] dark:text-[#9ba8b7] dark:hover:bg-[#102a41] dark:hover:text-cyan-300"
-                        type="button"
-                        title="目次項目を追加"
-                        aria-label={`${item.title}の近くに目次項目を追加`}
-                        onClick={() => openAddTocDialog(item)}
-                      >
-                        <Plus size={14} />
-                      </button>
-                    ) : null}
-                    {!isEditMode && tocMode === "edit" ? (
-                      <button
-                        className="grid h-8 w-8 place-items-center rounded-md border border-slate-200 text-slate-500 transition hover:border-cyan-400 hover:bg-cyan-50 hover:text-cyan-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 dark:border-[#34465c] dark:text-[#9ba8b7] dark:hover:bg-[#102a41] dark:hover:text-cyan-300"
-                        type="button"
-                        title="目次を編集"
-                        aria-label={`${item.title}を編集`}
-                        onClick={() => openEditTocDialog(item)}
-                      >
-                        <SquarePen size={14} />
-                      </button>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <div className="rounded-md border border-dashed border-slate-300 px-3 py-4 text-sm text-slate-500 dark:border-slate-600 dark:text-[#9ba8b7]">このPDFには目次が見つかりませんでした。</div>
-            )}
-          </nav>
-        </div>
-      </aside>
-
-      <section ref={viewerPanelRef} className="flex min-h-0 flex-col bg-slate-100 dark:bg-[#081827]">
-        {!isEditMode ? (
-        <header className="flex min-h-[58px] items-center justify-between gap-4 border-b border-slate-200 bg-white px-5 dark:border-[#243447] dark:bg-[#0b1a29] max-sm:grid">
-          <div className="flex min-w-0 flex-1 items-center gap-4 max-sm:grid">
-            <div className="min-w-0">
-              <h1 className="m-0 truncate text-lg font-bold text-slate-950 dark:text-[#f4f8ff]">{title}</h1>
-              <p className="mt-1 truncate text-xs text-slate-500 dark:text-[#9ba8b7]">{description}</p>
+                    type="button"
+                    title={isEditMode ? "PDF編集中は使用できません" : "追加"}
+                    aria-label="目次項目を追加"
+                    disabled={isEditMode}
+                    onClick={() => setTocMode((mode) => (mode === "add" ? "view" : "add"))}
+                  >
+                    <Plus size={16} />
+                  </button>
+                  <button
+                    className={`grid h-8 w-8 place-items-center rounded-lg border text-slate-600 transition hover:border-cyan-400 hover:text-cyan-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 disabled:cursor-not-allowed disabled:opacity-40 dark:text-[#9ba8b7] dark:hover:text-cyan-300 ${!isEditMode && tocMode === "edit" ? "border-cyan-400 bg-cyan-50 text-cyan-700 dark:bg-[#102a41] dark:text-cyan-300" : "border-slate-200 dark:border-[#34465c]"
+                      }`}
+                    type="button"
+                    title={isEditMode ? "PDF編集中は使用できません" : "編集"}
+                    aria-label="目次を編集"
+                    disabled={isEditMode}
+                    onClick={() => setTocMode((mode) => (mode === "edit" ? "view" : "edit"))}
+                  >
+                    <SquarePen size={16} />
+                  </button>
+                </div>
+              </div>
             </div>
+            <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-3" aria-label="PDF目次">
+              {outlineLoading ? (
+                <div className="flex items-center gap-2 px-2 py-3 text-sm text-slate-500 dark:text-[#9ba8b7]">
+                  <Loader2 className="animate-spin" size={16} />
+                  目次を読み込み中...
+                </div>
+              ) : outline.length ? (
+                <ul className="grid list-none gap-1 p-0">
+                  {visibleOutlineItems.map((item) => (
+                    <li key={item.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-1">
+                      <button
+                        className={`grid min-h-9 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-md px-3 py-2 text-left text-sm transition hover:bg-cyan-50 hover:text-cyan-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 dark:hover:bg-[#102a41] dark:hover:text-cyan-300 ${item.id === activeOutlineId ? "bg-cyan-50 text-cyan-700 dark:bg-[#102a41] dark:text-cyan-300" : "text-slate-600 dark:text-[#b7c4d4]"
+                          }`}
+                        style={{ paddingLeft: 12 + item.level * 18 }}
+                        type="button"
+                        aria-expanded={item.hasChildren ? expandedSections[item.id] !== false : undefined}
+                        onClick={() => handleOutlineClick(item)}
+                      >
+                        <span className="inline-flex min-w-0 items-center gap-2">
+                          {item.hasChildren ? (
+                            expandedSections[item.id] === false ? (
+                              <ChevronRight className="shrink-0" size={15} />
+                            ) : (
+                              <ChevronDown className="shrink-0" size={15} />
+                            )
+                          ) : item.level === 0 ? (
+                            <BookOpen className="shrink-0" size={15} />
+                          ) : (
+                            <FileText className="shrink-0" size={14} />
+                          )}
+                          <span className="truncate">{item.title}</span>
+                        </span>
+                        <span className="text-xs font-semibold text-slate-500 dark:text-[#8ea0b5]">{item.page}</span>
+                      </button>
+                      {!isEditMode && tocMode === "add" ? (
+                        <button
+                          className="grid h-8 w-8 place-items-center rounded-md border border-slate-200 text-slate-500 transition hover:border-cyan-400 hover:bg-cyan-50 hover:text-cyan-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 dark:border-[#34465c] dark:text-[#9ba8b7] dark:hover:bg-[#102a41] dark:hover:text-cyan-300"
+                          type="button"
+                          title="目次項目を追加"
+                          aria-label={`${item.title}の近くに目次項目を追加`}
+                          onClick={() => openAddTocDialog(item)}
+                        >
+                          <Plus size={14} />
+                        </button>
+                      ) : null}
+                      {!isEditMode && tocMode === "edit" ? (
+                        <button
+                          className="grid h-8 w-8 place-items-center rounded-md border border-slate-200 text-slate-500 transition hover:border-cyan-400 hover:bg-cyan-50 hover:text-cyan-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 dark:border-[#34465c] dark:text-[#9ba8b7] dark:hover:bg-[#102a41] dark:hover:text-cyan-300"
+                          type="button"
+                          title="目次を編集"
+                          aria-label={`${item.title}を編集`}
+                          onClick={() => openEditTocDialog(item)}
+                        >
+                          <SquarePen size={14} />
+                        </button>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="rounded-md border border-dashed border-slate-300 px-3 py-4 text-sm text-slate-500 dark:border-slate-600 dark:text-[#9ba8b7]">このPDFには目次が見つかりませんでした。</div>
+              )}
+            </nav>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <a
-              className="grid h-9 w-9 place-items-center rounded-lg border border-slate-200 text-slate-600 transition hover:border-cyan-400 hover:text-cyan-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 dark:border-[#243447] dark:text-[#9ba8b7] dark:hover:text-cyan-300"
-              href={currentPdfUrl}
-              download={currentFileInfo.name}
-              aria-label="PDFをダウンロード"
-              title="PDFをダウンロード"
-            >
-              <Download size={17} />
-            </a>
-            <button
-              className="grid h-9 w-9 place-items-center rounded-lg border border-slate-200 text-slate-600 transition hover:border-cyan-400 hover:text-cyan-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 dark:border-[#243447] dark:text-[#9ba8b7] dark:hover:text-cyan-300"
-              type="button"
-              aria-label="PDFを編集"
-              title="PDFを編集"
-              onClick={startPdfEditMode}
-            >
-              <SquarePen size={17} />
-            </button>
-            <button
-              className="grid h-9 w-9 place-items-center rounded-lg border border-slate-200 text-slate-600 transition hover:border-cyan-400 hover:text-cyan-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 dark:border-[#243447] dark:text-[#9ba8b7] dark:hover:text-cyan-300"
-              type="button"
-              aria-label="全画面表示"
-              title="全画面表示"
-              onClick={toggleFullscreen}
-            >
-              <Expand size={17} />
-            </button>
-          </div>
-        </header>
-        ) : null}
-        {isEditMode ? (
-          <section className="border-b border-slate-200 bg-slate-50 px-5 py-3 dark:border-[#243447] dark:bg-[#0b1a29]" aria-label="PDF編集パネル">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <div>
-                <h2 className="m-0 text-sm font-bold text-slate-800 dark:text-[#f4f8ff]">PDFを編集</h2>
-                <p className="mt-1 text-xs text-slate-500 dark:text-[#9ba8b7]">現在の資料を更新する新しいPDFファイルを選択してください。</p>
+        </aside>
+
+        <section ref={viewerPanelRef} className="flex min-h-0 flex-col bg-slate-100 dark:bg-[#081827]">
+          {!isEditMode ? (
+            <header className="flex min-h-[58px] items-center justify-between gap-4 border-b border-slate-200 bg-white px-5 dark:border-[#243447] dark:bg-[#0b1a29] max-sm:grid">
+              <div className="flex min-w-0 flex-1 items-center gap-4 max-sm:grid">
+                <div className="min-w-0">
+                  <h1 className="m-0 truncate text-lg font-bold text-slate-950 dark:text-[#f4f8ff]">{title}</h1>
+                  <p className="mt-1 truncate text-xs text-slate-500 dark:text-[#9ba8b7]">{description}</p>
+                </div>
               </div>
               <div className="flex shrink-0 items-center gap-2">
-                <button
-                  className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 dark:border-[#34465c] dark:bg-[#102033] dark:text-[#d8e2ed] dark:hover:bg-[#172a3f]"
-                  type="button"
-                  onClick={cancelEditMode}
+                <a
+                  className="grid h-9 w-9 place-items-center rounded-lg border border-slate-200 text-slate-600 transition hover:border-cyan-400 hover:text-cyan-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 dark:border-[#243447] dark:text-[#9ba8b7] dark:hover:text-cyan-300"
+                  href={currentPdfUrl}
+                  download={currentFileInfo.name}
+                  aria-label="PDFをダウンロード"
+                  title="PDFをダウンロード"
                 >
-                  <X size={16} />
-                  編集をキャンセル
+                  <Download size={17} />
+                </a>
+                <button
+                  className="grid h-9 w-9 place-items-center rounded-lg border border-slate-200 text-slate-600 transition hover:border-cyan-400 hover:text-cyan-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 dark:border-[#243447] dark:text-[#9ba8b7] dark:hover:text-cyan-300"
+                  type="button"
+                  aria-label="PDFを編集"
+                  title="PDFを編集"
+                  onClick={startPdfEditMode}
+                >
+                  <SquarePen size={17} />
                 </button>
                 <button
-                  className="inline-flex h-9 items-center gap-2 rounded-lg bg-cyan-600 px-4 text-sm font-semibold text-white transition hover:bg-cyan-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-cyan-500 dark:text-[#062235] dark:hover:bg-cyan-400"
+                  className="grid h-9 w-9 place-items-center rounded-lg border border-slate-200 text-slate-600 transition hover:border-cyan-400 hover:text-cyan-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 dark:border-[#243447] dark:text-[#9ba8b7] dark:hover:text-cyan-300"
                   type="button"
-                  disabled={!selectedFile}
-                  onClick={savePdfEdit}
+                  aria-label="全画面表示"
+                  title="全画面表示"
+                  onClick={toggleFullscreen}
                 >
-                  <CheckCircle2 size={16} />
-                  保存
+                  <Expand size={17} />
                 </button>
               </div>
-            </div>
+            </header>
+          ) : null}
+          {isEditMode ? (
+            <section className="border-b border-slate-200 bg-slate-50 px-5 py-3 dark:border-[#243447] dark:bg-[#0b1a29]" aria-label="PDF編集パネル">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div>
+                  <h2 className="m-0 text-sm font-bold text-slate-800 dark:text-[#f4f8ff]">PDFを編集</h2>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-[#9ba8b7]">現在の資料を更新する新しいPDFファイルを選択してください。</p>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <button
+                    className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 dark:border-[#34465c] dark:bg-[#102033] dark:text-[#d8e2ed] dark:hover:bg-[#172a3f]"
+                    type="button"
+                    onClick={cancelEditMode}
+                  >
+                    <X size={16} />
+                    編集をキャンセル
+                  </button>
+                  <button
+                    className="inline-flex h-9 items-center gap-2 rounded-lg bg-cyan-600 px-4 text-sm font-semibold text-white transition hover:bg-cyan-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-cyan-500 dark:text-[#062235] dark:hover:bg-cyan-400"
+                    type="button"
+                    disabled={!selectedFile}
+                    onClick={savePdfEdit}
+                  >
+                    <CheckCircle2 size={16} />
+                    保存
+                  </button>
+                </div>
+              </div>
 
-            <div className="grid gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(260px,0.7fr)]">
+              <div className="grid gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(260px,0.7fr)]">
+                <button
+                  className={`min-h-28 rounded-lg border border-dashed p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${isDraggingFile
+                      ? "border-cyan-400 bg-cyan-50 dark:bg-[#102a41]"
+                      : "border-slate-300 bg-white hover:border-cyan-400 hover:bg-cyan-50/50 dark:border-[#34465c] dark:bg-[#071624] dark:hover:bg-[#102a41]/60"
+                    }`}
+                  type="button"
+                  onClick={() => uploadInputRef.current?.click()}
+                  onDragOver={(event) => {
+                    event.preventDefault();
+                    setIsDraggingFile(true);
+                  }}
+                  onDragLeave={() => setIsDraggingFile(false)}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    setIsDraggingFile(false);
+                    selectUploadFile(event.dataTransfer.files.item(0) ?? undefined);
+                  }}
+                >
+                  <input
+                    ref={uploadInputRef}
+                    className="hidden"
+                    type="file"
+                    accept="application/pdf,.pdf"
+                    onChange={(event) => selectUploadFile(event.target.files?.item(0) ?? undefined)}
+                  />
+                  <div className="flex h-full items-center justify-center gap-4 max-sm:flex-col max-sm:text-center">
+                    <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-cyan-50 text-cyan-600 dark:bg-[#102a41] dark:text-cyan-300">
+                      <UploadCloud size={22} />
+                    </div>
+                    <div>
+                      <p className="m-0 text-sm font-bold text-slate-800 dark:text-[#f4f8ff]">新しいPDFをアップロード</p>
+                      <p className="mt-1 text-sm text-slate-500 dark:text-[#9ba8b7]">PDFファイルをここにドラッグ＆ドロップ、またはファイルを選択</p>
+                      <p className="mt-1 text-xs text-slate-400 dark:text-[#738398]">.pdfファイルのみ対応、最大100MB</p>
+                      {selectedFile ? <p className="mt-3 truncate text-sm font-semibold text-cyan-700 dark:text-cyan-300">{selectedFile.name}</p> : null}
+                      {uploadError ? (
+                        <p className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-red-600 dark:text-red-300">
+                          <AlertCircle size={15} />
+                          {uploadError}
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
+                </button>
+
+                <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-[#34465c] dark:bg-[#071624]">
+                  <p className="m-0 text-sm font-bold text-slate-800 dark:text-[#f4f8ff]">現在のPDFファイル</p>
+                  <div className="mt-4 flex items-start gap-3">
+                    <FileText className="mt-0.5 shrink-0 text-cyan-600 dark:text-cyan-300" size={20} />
+                    <div className="min-w-0">
+                      <p className="m-0 truncate text-sm font-semibold text-slate-800 dark:text-[#f4f8ff]">{currentFileInfo.name}</p>
+                      <p className="mt-1 text-xs text-slate-500 dark:text-[#9ba8b7]">更新日時: {currentFileInfo.updatedAt}</p>
+                      <p className="mt-1 text-xs text-slate-500 dark:text-[#9ba8b7]">ファイルサイズ: {currentFileInfo.size}</p>
+                    </div>
+                  </div>
+                  <a
+                    className="mt-4 inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 px-3 text-sm font-semibold text-slate-600 transition hover:border-cyan-400 hover:text-cyan-600 dark:border-[#34465c] dark:text-[#d8e2ed] dark:hover:text-cyan-300"
+                    href={currentPdfUrl}
+                    download={currentFileInfo.name}
+                  >
+                    <Download size={16} />
+                    現在のファイルをダウンロード
+                  </a>
+                </div>
+              </div>
+            </section>
+          ) : null}
+          <div className="flex min-h-14 flex-wrap items-center gap-3 border-b border-slate-200 bg-slate-100 px-5 py-2 dark:border-[#34465c] dark:bg-[#1f2937]">
+            <div className="flex items-center gap-1 rounded-lg border border-slate-300 bg-white p-1 dark:border-[#34465c] dark:bg-[#102033]">
               <button
-                className={`min-h-28 rounded-lg border border-dashed p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
-                  isDraggingFile
-                    ? "border-cyan-400 bg-cyan-50 dark:bg-[#102a41]"
-                    : "border-slate-300 bg-white hover:border-cyan-400 hover:bg-cyan-50/50 dark:border-[#34465c] dark:bg-[#071624] dark:hover:bg-[#102a41]/60"
-                }`}
+                className="grid h-8 w-8 place-items-center rounded-md text-slate-600 transition hover:bg-slate-100 hover:text-cyan-700 disabled:cursor-not-allowed disabled:opacity-40 dark:text-[#b7c4d4] dark:hover:bg-[#172a3f] dark:hover:text-cyan-300"
                 type="button"
-                onClick={() => uploadInputRef.current?.click()}
-                onDragOver={(event) => {
+                aria-label="前のページ"
+                title="前のページ"
+                disabled={activePage <= 1}
+                onClick={() => goToPage(activePage - 1)}
+              >
+                <ChevronLeft size={17} />
+              </button>
+              <form
+                className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-[#d8e2ed]"
+                onSubmit={(event) => {
                   event.preventDefault();
-                  setIsDraggingFile(true);
-                }}
-                onDragLeave={() => setIsDraggingFile(false)}
-                onDrop={(event) => {
-                  event.preventDefault();
-                  setIsDraggingFile(false);
-                  selectUploadFile(event.dataTransfer.files.item(0) ?? undefined);
+                  submitPageInput();
                 }}
               >
                 <input
-                  ref={uploadInputRef}
-                  className="hidden"
-                  type="file"
-                  accept="application/pdf,.pdf"
-                  onChange={(event) => selectUploadFile(event.target.files?.item(0) ?? undefined)}
+                  className="h-8 w-14 rounded-md border border-slate-300 bg-white px-2 text-center text-sm font-semibold text-slate-950 outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/30 dark:border-[#2f4358] dark:bg-[#071624] dark:text-[#f4f8ff]"
+                  type="number"
+                  min={1}
+                  max={totalPages}
+                  value={pageInput}
+                  aria-label="ページ番号"
+                  onBlur={submitPageInput}
+                  onChange={(event) => setPageInput(event.target.value)}
                 />
-                <div className="flex h-full items-center justify-center gap-4 max-sm:flex-col max-sm:text-center">
-                  <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-cyan-50 text-cyan-600 dark:bg-[#102a41] dark:text-cyan-300">
-                    <UploadCloud size={22} />
-                  </div>
-                  <div>
-                    <p className="m-0 text-sm font-bold text-slate-800 dark:text-[#f4f8ff]">新しいPDFをアップロード</p>
-                    <p className="mt-1 text-sm text-slate-500 dark:text-[#9ba8b7]">PDFファイルをここにドラッグ＆ドロップ、またはファイルを選択</p>
-                    <p className="mt-1 text-xs text-slate-400 dark:text-[#738398]">.pdfファイルのみ対応、最大100MB</p>
-                    {selectedFile ? <p className="mt-3 truncate text-sm font-semibold text-cyan-700 dark:text-cyan-300">{selectedFile.name}</p> : null}
-                    {uploadError ? (
-                      <p className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-red-600 dark:text-red-300">
-                        <AlertCircle size={15} />
-                        {uploadError}
-                      </p>
-                    ) : null}
-                  </div>
-                </div>
+                <span className="text-slate-400 dark:text-[#738398]">/</span>
+                <span className="min-w-6 text-center">{totalPages}</span>
+              </form>
+              <button
+                className="grid h-8 w-8 place-items-center rounded-md text-slate-600 transition hover:bg-slate-100 hover:text-cyan-700 disabled:cursor-not-allowed disabled:opacity-40 dark:text-[#b7c4d4] dark:hover:bg-[#172a3f] dark:hover:text-cyan-300"
+                type="button"
+                aria-label="次のページ"
+                title="次のページ"
+                disabled={activePage >= totalPages}
+                onClick={() => goToPage(activePage + 1)}
+              >
+                <ChevronRight size={17} />
               </button>
-
-              <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-[#34465c] dark:bg-[#071624]">
-                <p className="m-0 text-sm font-bold text-slate-800 dark:text-[#f4f8ff]">現在のPDFファイル</p>
-                <div className="mt-4 flex items-start gap-3">
-                  <FileText className="mt-0.5 shrink-0 text-cyan-600 dark:text-cyan-300" size={20} />
-                  <div className="min-w-0">
-                    <p className="m-0 truncate text-sm font-semibold text-slate-800 dark:text-[#f4f8ff]">{currentFileInfo.name}</p>
-                    <p className="mt-1 text-xs text-slate-500 dark:text-[#9ba8b7]">更新日時: {currentFileInfo.updatedAt}</p>
-                    <p className="mt-1 text-xs text-slate-500 dark:text-[#9ba8b7]">ファイルサイズ: {currentFileInfo.size}</p>
-                  </div>
-                </div>
-                <a
-                  className="mt-4 inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 px-3 text-sm font-semibold text-slate-600 transition hover:border-cyan-400 hover:text-cyan-600 dark:border-[#34465c] dark:text-[#d8e2ed] dark:hover:text-cyan-300"
-                  href={currentPdfUrl}
-                  download={currentFileInfo.name}
-                >
-                  <Download size={16} />
-                  現在のファイルをダウンロード
-                </a>
-              </div>
             </div>
-          </section>
-        ) : null}
-        <div className="flex min-h-14 flex-wrap items-center gap-3 border-b border-slate-200 bg-slate-100 px-5 py-2 dark:border-[#34465c] dark:bg-[#1f2937]">
-          <div className="flex items-center gap-1 rounded-lg border border-slate-300 bg-white p-1 dark:border-[#34465c] dark:bg-[#102033]">
-            <button
-              className="grid h-8 w-8 place-items-center rounded-md text-slate-600 transition hover:bg-slate-100 hover:text-cyan-700 disabled:cursor-not-allowed disabled:opacity-40 dark:text-[#b7c4d4] dark:hover:bg-[#172a3f] dark:hover:text-cyan-300"
-              type="button"
-              aria-label="前のページ"
-              title="前のページ"
-              disabled={activePage <= 1}
-              onClick={() => goToPage(activePage - 1)}
-            >
-              <ChevronLeft size={17} />
-            </button>
+
+            <div className="h-8 border-l border-slate-300 dark:border-[#34465c]" />
+
+            <div className="flex items-center gap-1 rounded-lg border border-slate-300 bg-white p-1 dark:border-[#34465c] dark:bg-[#102033]">
+              <span className="min-w-16 px-2 text-center text-sm font-semibold text-slate-700 dark:text-[#d8e2ed]">{zoomPercent}%</span>
+              <button
+                className="grid h-8 w-8 place-items-center rounded-md text-slate-600 transition hover:bg-slate-100 hover:text-cyan-700 dark:text-[#b7c4d4] dark:hover:bg-[#172a3f] dark:hover:text-cyan-300"
+                type="button"
+                aria-label="縮小"
+                title="縮小"
+                onClick={() => zoomCapabilityRef.current?.zoomOut?.()}
+              >
+                <ZoomOut size={17} />
+              </button>
+              <button
+                className="grid h-8 w-8 place-items-center rounded-md text-slate-600 transition hover:bg-slate-100 hover:text-cyan-700 dark:text-[#b7c4d4] dark:hover:bg-[#172a3f] dark:hover:text-cyan-300"
+                type="button"
+                aria-label="拡大"
+                title="拡大"
+                onClick={() => zoomCapabilityRef.current?.zoomIn?.()}
+              >
+                <ZoomIn size={17} />
+              </button>
+              <button
+                className="grid h-8 w-8 place-items-center rounded-md text-slate-600 transition hover:bg-slate-100 hover:text-cyan-700 dark:text-[#b7c4d4] dark:hover:bg-[#172a3f] dark:hover:text-cyan-300"
+                type="button"
+                aria-label="ズームをリセット"
+                title="ズームをリセット"
+                onClick={() => zoomCapabilityRef.current?.requestZoom?.(1)}
+              >
+                <RotateCcw size={16} />
+              </button>
+            </div>
+
+            <div className="h-8 border-l border-slate-300 dark:border-[#34465c]" />
+
             <form
-              className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-[#d8e2ed]"
+              className="flex min-w-[220px] flex-1 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-1 dark:border-[#34465c] dark:bg-[#102033] max-sm:min-w-full"
               onSubmit={(event) => {
                 event.preventDefault();
-                submitPageInput();
+                submitSearch();
               }}
             >
+              <Search className="shrink-0 text-slate-500 dark:text-[#9ba8b7]" size={17} />
               <input
-                className="h-8 w-14 rounded-md border border-slate-300 bg-white px-2 text-center text-sm font-semibold text-slate-950 outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/30 dark:border-[#2f4358] dark:bg-[#071624] dark:text-[#f4f8ff]"
-                type="number"
-                min={1}
-                max={totalPages}
-                value={pageInput}
-                aria-label="ページ番号"
-                onBlur={submitPageInput}
-                onChange={(event) => setPageInput(event.target.value)}
+                className="h-8 min-w-0 flex-1 bg-transparent text-sm text-slate-950 outline-none placeholder:text-slate-400 dark:text-[#f4f8ff] dark:placeholder:text-[#66788c]"
+                type="search"
+                value={searchQuery}
+                placeholder="文書内を検索"
+                aria-label="文書内を検索"
+                onChange={(event) => setSearchQuery(event.target.value)}
               />
-              <span className="text-slate-400 dark:text-[#738398]">/</span>
-              <span className="min-w-6 text-center">{totalPages}</span>
             </form>
-            <button
-              className="grid h-8 w-8 place-items-center rounded-md text-slate-600 transition hover:bg-slate-100 hover:text-cyan-700 disabled:cursor-not-allowed disabled:opacity-40 dark:text-[#b7c4d4] dark:hover:bg-[#172a3f] dark:hover:text-cyan-300"
-              type="button"
-              aria-label="次のページ"
-              title="次のページ"
-              disabled={activePage >= totalPages}
-              onClick={() => goToPage(activePage + 1)}
-            >
-              <ChevronRight size={17} />
-            </button>
           </div>
-
-          <div className="h-8 border-l border-slate-300 dark:border-[#34465c]" />
-
-          <div className="flex items-center gap-1 rounded-lg border border-slate-300 bg-white p-1 dark:border-[#34465c] dark:bg-[#102033]">
-            <span className="min-w-16 px-2 text-center text-sm font-semibold text-slate-700 dark:text-[#d8e2ed]">{zoomPercent}%</span>
-            <button
-              className="grid h-8 w-8 place-items-center rounded-md text-slate-600 transition hover:bg-slate-100 hover:text-cyan-700 dark:text-[#b7c4d4] dark:hover:bg-[#172a3f] dark:hover:text-cyan-300"
-              type="button"
-              aria-label="縮小"
-              title="縮小"
-              onClick={() => zoomCapabilityRef.current?.zoomOut?.()}
-            >
-              <ZoomOut size={17} />
-            </button>
-            <button
-              className="grid h-8 w-8 place-items-center rounded-md text-slate-600 transition hover:bg-slate-100 hover:text-cyan-700 dark:text-[#b7c4d4] dark:hover:bg-[#172a3f] dark:hover:text-cyan-300"
-              type="button"
-              aria-label="拡大"
-              title="拡大"
-              onClick={() => zoomCapabilityRef.current?.zoomIn?.()}
-            >
-              <ZoomIn size={17} />
-            </button>
-            <button
-              className="grid h-8 w-8 place-items-center rounded-md text-slate-600 transition hover:bg-slate-100 hover:text-cyan-700 dark:text-[#b7c4d4] dark:hover:bg-[#172a3f] dark:hover:text-cyan-300"
-              type="button"
-              aria-label="ズームをリセット"
-              title="ズームをリセット"
-              onClick={() => zoomCapabilityRef.current?.requestZoom?.(1)}
-            >
-              <RotateCcw size={16} />
-            </button>
-          </div>
-
-          <div className="h-8 border-l border-slate-300 dark:border-[#34465c]" />
-
-          <form
-            className="flex min-w-[220px] flex-1 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-1 dark:border-[#34465c] dark:bg-[#102033] max-sm:min-w-full"
-            onSubmit={(event) => {
-              event.preventDefault();
-              submitSearch();
-            }}
-          >
-            <Search className="shrink-0 text-slate-500 dark:text-[#9ba8b7]" size={17} />
-            <input
-              className="h-8 min-w-0 flex-1 bg-transparent text-sm text-slate-950 outline-none placeholder:text-slate-400 dark:text-[#f4f8ff] dark:placeholder:text-[#66788c]"
-              type="search"
-              value={searchQuery}
-              placeholder="文書内を検索"
-              aria-label="文書内を検索"
-              onChange={(event) => setSearchQuery(event.target.value)}
-            />
-          </form>
-        </div>
-        <div className="min-h-0 flex-1">
-          <PDFViewer
-            key={`${viewerVersion}-${appTheme}`}
-            config={{
-              src: viewerSrc,
-              theme: {
-                preference: appTheme,
-                light: {
-                  background: {
-                    app: "#eef3f8",
-                    surface: "#f8fafc",
-                    surfaceAlt: "#e8eef5",
-                    elevated: "#ffffff",
-                    input: "#ffffff"
-                  },
-                  foreground: {
-                    primary: "#0f172a",
-                    secondary: "#475569",
-                    muted: "#64748b"
-                  },
-                  border: {
-                    default: "#cbd5e1",
-                    subtle: "#dbe4ee",
-                    strong: "#94a3b8"
-                  },
-                  interactive: {
-                    hover: "#e2e8f0",
-                    active: "#dbeafe",
-                    selected: "#e0f2fe",
-                    focus: "#06b6d4",
-                    focusRing: "rgba(6, 182, 212, 0.28)"
-                  },
-                  accent: {
-                    primary: "#0891b2",
-                    primaryHover: "#0e7490",
-                    primaryActive: "#155e75",
-                    primaryLight: "#cffafe",
-                    primaryForeground: "#ffffff"
-                  },
-                  scrollbar: {
-                    track: "#e8eef5",
-                    thumb: "#94a3b8",
-                    thumbHover: "#64748b"
-                  }
-                },
-                dark: {
-                  background: {
-                    app: "#111827",
-                    surface: "#1f2937",
-                    surfaceAlt: "#243244",
-                    elevated: "#0f1e2e",
-                    input: "#102033"
-                  },
-                  border: {
-                    default: "#34465c",
-                    subtle: "#243447"
-                  },
-                  accent: {
-                    primary: "#22d3ee",
-                    primaryHover: "#67e8f9",
-                    primaryActive: "#0891b2",
-                    primaryLight: "#102a41",
-                    primaryForeground: "#082f49"
-                  }
-                }
-              },
-              tabBar: "never",
-              ui: {
-                schema: {
-                  id: "support-pdf-viewer",
-                  version: "1.0.0",
-                  toolbars: {
-                    "main-toolbar": {
-                      id: "main-toolbar",
-                      position: { placement: "top", slot: "main", order: 0 },
-                      permanent: true,
-                      items: []
+          <div className="min-h-0 flex-1">
+            <PDFViewer
+              key={`${viewerVersion}-${appTheme}`}
+              config={{
+                src: viewerSrc,
+                theme: {
+                  preference: appTheme,
+                  light: {
+                    background: {
+                      app: "#eef3f8",
+                      surface: "#f8fafc",
+                      surfaceAlt: "#e8eef5",
+                      elevated: "#ffffff",
+                      input: "#ffffff"
+                    },
+                    foreground: {
+                      primary: "#0f172a",
+                      secondary: "#475569",
+                      muted: "#64748b"
+                    },
+                    border: {
+                      default: "#cbd5e1",
+                      subtle: "#dbe4ee",
+                      strong: "#94a3b8"
+                    },
+                    interactive: {
+                      hover: "#e2e8f0",
+                      active: "#dbeafe",
+                      selected: "#e0f2fe",
+                      focus: "#06b6d4",
+                      focusRing: "rgba(6, 182, 212, 0.28)"
+                    },
+                    accent: {
+                      primary: "#0891b2",
+                      primaryHover: "#0e7490",
+                      primaryActive: "#155e75",
+                      primaryLight: "#cffafe",
+                      primaryForeground: "#ffffff"
+                    },
+                    scrollbar: {
+                      track: "#e8eef5",
+                      thumb: "#94a3b8",
+                      thumbHover: "#64748b"
                     }
                   },
-                  menus: {},
-                  sidebars: {},
-                  modals: {},
-                  overlays: {},
-                  selectionMenus: {}
-                } as any
-              },
-              disabledCategories: [
-                "annotation",
-                "attachment",
-                "capture",
-                "document",
-                "export",
-                "form",
-                "fullscreen",
-                "history",
-                "pan",
-                "print",
-                "redaction",
-                "rotate",
-                "selection",
-                "stamp",
-                "tools"
-              ]
-            }}
-            style={{ height: "100%", width: "100%" }}
-            onReady={handleViewerReady}
-          />
-        </div>
-      </section>
-    </div>
+                  dark: {
+                    background: {
+                      app: "#111827",
+                      surface: "#1f2937",
+                      surfaceAlt: "#243244",
+                      elevated: "#0f1e2e",
+                      input: "#102033"
+                    },
+                    border: {
+                      default: "#34465c",
+                      subtle: "#243447"
+                    },
+                    accent: {
+                      primary: "#22d3ee",
+                      primaryHover: "#67e8f9",
+                      primaryActive: "#0891b2",
+                      primaryLight: "#102a41",
+                      primaryForeground: "#082f49"
+                    }
+                  }
+                },
+                tabBar: "never",
+                ui: {
+                  schema: {
+                    id: "support-pdf-viewer",
+                    version: "1.0.0",
+                    toolbars: {
+                      "main-toolbar": {
+                        id: "main-toolbar",
+                        position: { placement: "top", slot: "main", order: 0 },
+                        permanent: true,
+                        items: []
+                      }
+                    },
+                    menus: {},
+                    sidebars: {},
+                    modals: {},
+                    overlays: {},
+                    selectionMenus: {}
+                  } as any
+                },
+                disabledCategories: [
+                  "annotation",
+                  "attachment",
+                  "capture",
+                  "document",
+                  "export",
+                  "form",
+                  "fullscreen",
+                  "history",
+                  "pan",
+                  "print",
+                  "redaction",
+                  "rotate",
+                  "selection",
+                  "stamp",
+                  "tools"
+                ]
+              }}
+              style={{ height: "100%", width: "100%" }}
+              onReady={handleViewerReady}
+            />
+          </div>
+        </section>
+      </div>
       <Dialog open={replaceConfirmOpen} onOpenChange={setReplaceConfirmOpen}>
         <DialogContent>
           <DialogHeader>

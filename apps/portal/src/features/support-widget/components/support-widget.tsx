@@ -16,6 +16,7 @@ const OPERATOR_URL = "https://timerex.net/s/vanan6b_576b/096a4aff";
 
 const actionCardClass =
   "grid min-h-16 grid-cols-[42px_minmax(0,1fr)] items-center gap-3.5 rounded-[10px] border border-transparent bg-slate-100 px-[18px] py-3.5 text-left text-slate-950 transition hover:-translate-y-px hover:border-cyan-400/70 hover:bg-cyan-50 hover:shadow-lg hover:shadow-slate-950/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 dark:bg-[#1d2a3b] dark:text-[#f4f8ff] dark:hover:bg-[#122a40] dark:hover:shadow-black/20 [&_svg]:text-cyan-500 dark:[&_svg]:text-[#00d9ff] [&_strong]:mb-1 [&_strong]:block [&_strong]:text-[15px] [&_small]:line-clamp-2 [&_small]:text-xs [&_small]:leading-[1.45] [&_small]:text-slate-500 dark:[&_small]:text-[#9ba8b7]";
+const outlineCardClass = `${actionCardClass} h-[88px]`;
 
 export function SupportWidget({ embedded = false }: SupportWidgetProps) {
   const [isOpen, setIsOpen] = useState(true);
@@ -105,22 +106,24 @@ export function SupportWidget({ embedded = false }: SupportWidgetProps) {
               <div className="h-14 w-14 animate-spin rounded-full border-[5px] border-cyan-500/20 border-t-cyan-400 shadow-[0_0_22px_rgba(34,211,238,0.45)]" />
             </div>
           ) : (
-            <div className={`grid gap-3 px-4 pb-[18px] pt-5 ${embedded ? "min-h-0 flex-1 px-4 pb-3 pt-[22px]" : ""}`}>
-              {visibleOutlineItems.map((outlineItem) => {
-                const href = `/support/manual?outline=${encodeURIComponent(outlineItem.id)}`;
-                return (
-                  <Link className={actionCardClass} key={outlineItem.id} href={href} target="_blank" rel="noopener noreferrer">
-                    <BookOpen size={32} />
-                    <span>
-                      <strong>{outlineItem.title}</strong>
-                      <small>PDFマニュアル {outlineItem.page}ページ</small>
-                    </span>
-                  </Link>
-                );
-              })}
+            <div className={`flex flex-col gap-3 px-4 pb-[18px] pt-5 ${embedded ? "min-h-0 flex-1 px-4 pb-3 pt-[22px]" : ""}`}>
+              <div className="grid gap-3">
+                {visibleOutlineItems.map((outlineItem) => {
+                  const href = `/support/manual?outline=${encodeURIComponent(outlineItem.id)}`;
+                  return (
+                    <Link className={outlineCardClass} key={outlineItem.id} href={href} target="_blank" rel="noopener noreferrer">
+                      <BookOpen size={32} />
+                      <span>
+                        <strong>{outlineItem.title}</strong>
+                        <small>PDFマニュアル {outlineItem.page}ページ</small>
+                      </span>
+                    </Link>
+                  );
+                })}
+              </div>
 
               {outlinePageCount > 1 ? (
-                <div className="flex items-center justify-between gap-2 pt-1 text-xs text-slate-500 dark:text-[#9ba8b7]">
+                <div className="mt-auto flex items-center justify-between gap-2 pt-1 text-xs text-slate-500 dark:text-[#9ba8b7]">
                   <button
                     className="inline-flex h-8 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 transition hover:border-cyan-400 hover:text-cyan-600 disabled:cursor-not-allowed disabled:opacity-40 dark:border-[#243447] dark:bg-[#0f1e2e] dark:hover:text-cyan-300"
                     type="button"
