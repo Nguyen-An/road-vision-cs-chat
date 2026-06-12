@@ -21,6 +21,7 @@ const PDFViewer = dynamic(() => import("@embedpdf/react-pdf-viewer").then((modul
 });
 
 const maxUploadSizeBytes = 100 * 1024 * 1024;
+const initialOutlineScrollDelayMs = 1000;
 const defaultManualPdf: Required<ManualPdf> = {
   pdfUrl: "/Road_Inspection_Manual_JP_Outline_30Pages.pdf",
   fileName: "Road_Inspection_Manual_JP_Outline_30Pages.pdf",
@@ -254,6 +255,7 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
   const searchCapabilityRef = useRef<any>(null);
   const zoomCapabilityRef = useRef<any>(null);
   const initialOutlineScrollDoneRef = useRef(false);
+  const initialOutlineScrollTimeoutRef = useRef<number | null>(null);
   const unsubscribePageChangeRef = useRef<(() => void) | null>(null);
   const unsubscribeLayoutReadyRef = useRef<(() => void) | null>(null);
   const unsubscribeZoomChangeRef = useRef<(() => void) | null>(null);
@@ -277,6 +279,10 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
     setViewerInitialPage(initialPage);
     setActiveOutlineId(initialOutlineId);
     initialOutlineScrollDoneRef.current = false;
+    if (initialOutlineScrollTimeoutRef.current) {
+      window.clearTimeout(initialOutlineScrollTimeoutRef.current);
+      initialOutlineScrollTimeoutRef.current = null;
+    }
     setViewerVersion((version) => version + 1);
   }, [pdf, initialOutlineId, initialPage]);
 
@@ -325,6 +331,7 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
       unsubscribePageChangeRef.current?.();
       unsubscribeLayoutReadyRef.current?.();
       unsubscribeZoomChangeRef.current?.();
+      if (initialOutlineScrollTimeoutRef.current) window.clearTimeout(initialOutlineScrollTimeoutRef.current);
       if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
       if (previewObjectUrlRef.current) URL.revokeObjectURL(previewObjectUrlRef.current);
     };
@@ -341,10 +348,14 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
     return nextPage;
   };
 
-  const scrollToInitialOutline = (pages: number) => {
+  const scheduleInitialOutlineScroll = (pages: number) => {
     if (!initialOutlineId || initialOutlineScrollDoneRef.current || pages < 1) return false;
     initialOutlineScrollDoneRef.current = true;
-    scrollToResolvedPage(initialPage, pages);
+    if (initialOutlineScrollTimeoutRef.current) window.clearTimeout(initialOutlineScrollTimeoutRef.current);
+    initialOutlineScrollTimeoutRef.current = window.setTimeout(() => {
+      initialOutlineScrollTimeoutRef.current = null;
+      scrollToResolvedPage(initialPage, pages);
+    }, initialOutlineScrollDelayMs);
     return true;
   };
 
@@ -367,7 +378,7 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
     });
     unsubscribeLayoutReadyRef.current = scrollCapability?.onLayoutReady?.((event: { pageNumber: number; totalPages: number }) => {
       setTotalPages(event.totalPages);
-      if (!scrollToInitialOutline(event.totalPages)) setActivePage(event.pageNumber);
+      if (!scheduleInitialOutlineScroll(event.totalPages)) setActivePage(event.pageNumber);
     });
     unsubscribeZoomChangeRef.current = zoomCapability?.onZoomChange?.((event: { newZoom: number }) => {
       setZoomPercent(Math.round(event.newZoom * 100));
@@ -379,7 +390,7 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
     if (currentPage) setActivePage(currentPage);
     if (pages) setTotalPages(pages);
     window.setTimeout(() => {
-      if (!pages || !scrollToInitialOutline(pages)) scrollCapability?.scrollToPage?.({ pageNumber: activePage });
+      if (!pages || !scheduleInitialOutlineScroll(pages)) scrollCapability?.scrollToPage?.({ pageNumber: activePage });
     }, 0);
   };
 
