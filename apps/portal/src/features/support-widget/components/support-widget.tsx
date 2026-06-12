@@ -101,7 +101,7 @@ export function SupportWidget({ embedded = false }: SupportWidgetProps) {
               </a>
             </div>
           ) : outlineLoading ? (
-            <div className={`flex items-center justify-center px-4 ${embedded ? "min-h-[calc(100vh-57px)]" : "min-h-[360px]"}`} aria-label="Loading manual outline" role="status">
+            <div className={`flex items-center justify-center px-4 ${embedded ? "min-h-[calc(100vh-57px)]" : "min-h-[360px]"}`} aria-label="マニュアル目次を読み込み中" role="status">
               <div className="h-14 w-14 animate-spin rounded-full border-[5px] border-cyan-500/20 border-t-cyan-400 shadow-[0_0_22px_rgba(34,211,238,0.45)]" />
             </div>
           ) : (
@@ -113,7 +113,7 @@ export function SupportWidget({ embedded = false }: SupportWidgetProps) {
                     <BookOpen size={32} />
                     <span>
                       <strong>{outlineItem.title}</strong>
-                      <small>PDF manual page {outlineItem.page}</small>
+                      <small>PDFマニュアル {outlineItem.page}ページ</small>
                     </span>
                   </Link>
                 );

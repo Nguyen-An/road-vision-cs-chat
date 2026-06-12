@@ -101,10 +101,10 @@ const manualOutline: OutlineItem[] = [
 ];
 
 const manualPdf: ManualPdf = {
-  pdfUrl: "/tai_lieu_quan_ly_duong_bo_co_muc_luc.pdf",
-  fileName: "tai_lieu_quan_ly_duong_bo_co_muc_luc.pdf",
+  pdfUrl: "/Road_Inspection_Manual_JP_Outline_30Pages.pdf",
+  fileName: "Road_Inspection_Manual_JP_Outline_30Pages.pdf",
   updatedAt: "2026/06/11 14:30",
-  size: "86.6KB"
+  size: "27414KB"
 };
 
 export function getManualOutlineData() {

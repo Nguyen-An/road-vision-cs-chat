@@ -36,9 +36,9 @@ export default async function ManualPage({ searchParams }: ManualPageProps) {
         outline={outline}
         initialOutlineId={selectedOutline?.id}
         initialPage={initialPage}
-        title="RoadVision Manual"
-        description={selectedOutline?.title ?? "User manual document"}
-        outlineTitle="PDF Manual"
+        title="RoadVision マニュアル"
+        description={selectedOutline?.title ?? "ユーザーマニュアル"}
+        outlineTitle="PDFマニュアル"
       />
     </main>
   );

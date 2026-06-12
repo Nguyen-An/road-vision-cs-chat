@@ -14,25 +14,25 @@ const PDFViewer = dynamic(() => import("@embedpdf/react-pdf-viewer").then((modul
     <div className="grid h-full place-items-center text-sm text-slate-500 dark:text-[#9ba8b7]">
       <span className="inline-flex items-center gap-2">
         <Loader2 className="animate-spin" size={18} />
-        Loading PDF viewer...
+        PDFビューアーを読み込み中...
       </span>
     </div>
   )
 });
 
-const maxUploadSizeBytes = 20 * 1024 * 1024;
+const maxUploadSizeBytes = 100 * 1024 * 1024;
 const defaultManualPdf: Required<ManualPdf> = {
-  pdfUrl: "/tai_lieu_quan_ly_duong_bo_co_muc_luc.pdf",
-  fileName: "tai_lieu_quan_ly_duong_bo_co_muc_luc.pdf",
+  pdfUrl: "/Road_Inspection_Manual_JP_Outline_30Pages.pdf",
+  fileName: "Road_Inspection_Manual_JP_Outline_30Pages.pdf",
   updatedAt: "2026/06/11 14:30",
-  size: "86.6KB"
+  size: "27414KBKB"
 };
-const defaultManualTitle = "PDF Manual";
-const defaultManualDescription = "User manual document";
+const defaultManualTitle = "PDFマニュアル";
+const defaultManualDescription = "ユーザーマニュアル";
 const initialPdfFileInfo = {
-  name: "tai_lieu_quan_ly_duong_bo_co_muc_luc.pdf",
+  name: "Road_Inspection_Manual_JP_Outline_30Pages.pdf",
   updatedAt: "2026/06/11 14:30",
-  size: "86.6KB"
+  size: "27414KBKB"
 };
 // const localPdfUrl = "/RV操作マニュアル（MDフォーマット）_260605.pdf";
 
@@ -165,7 +165,7 @@ async function buildOutlineFromPdf(pdf: any): Promise<{ items: PdfOutlineItem[];
   const flattenedItems = await Promise.all(
     flattenOutline(pdfOutline).map(async (item, index) => ({
       id: `${index}-${item.title}`,
-      title: item.title || `Page ${index + 1}`,
+      title: item.title || `${index + 1}ページ`,
       page: inferPageFromPrintedToc(item.title ?? "", pagesByTitle, sectionPages) ?? (await resolveOutlinePage(pdf, item.dest)),
       level: item.level ?? 0
     }))
@@ -221,6 +221,7 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
   const [currentFileInfo, setCurrentFileInfo] = useState<PdfFileInfo>(() => getInitialFileInfo(pdf));
   const [isEditMode, setIsEditMode] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null);
   const [replaceConfirmOpen, setReplaceConfirmOpen] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const [outlineReloadVersion, setOutlineReloadVersion] = useState(0);
@@ -243,19 +244,27 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
   const uploadInputRef = useRef<HTMLInputElement>(null);
   const uploadOutlineRequestRef = useRef(0);
   const objectUrlRef = useRef<string | null>(null);
+  const previewObjectUrlRef = useRef<string | null>(null);
   const scrollCapabilityRef = useRef<any>(null);
   const searchCapabilityRef = useRef<any>(null);
   const zoomCapabilityRef = useRef<any>(null);
   const unsubscribePageChangeRef = useRef<(() => void) | null>(null);
   const unsubscribeLayoutReadyRef = useRef<(() => void) | null>(null);
   const unsubscribeZoomChangeRef = useRef<(() => void) | null>(null);
-  const viewerSrc = viewerInitialPage > 1 ? `${currentPdfUrl}#page=${viewerInitialPage}` : currentPdfUrl;
+  const activePdfUrl = previewPdfUrl ?? currentPdfUrl;
+  const viewerSrc = viewerInitialPage > 1 ? `${activePdfUrl}#page=${viewerInitialPage}` : activePdfUrl;
 
   useEffect(() => {
+    if (previewObjectUrlRef.current) {
+      URL.revokeObjectURL(previewObjectUrlRef.current);
+      previewObjectUrlRef.current = null;
+    }
     setCurrentPdfUrl(pdf.pdfUrl);
-      setCurrentFileInfo(getInitialFileInfo(pdf));
-      setUseEmbeddedOutline(false);
-      setActivePage(initialPage);
+    setPreviewPdfUrl(null);
+    setSelectedFile(null);
+    setCurrentFileInfo(getInitialFileInfo(pdf));
+    setUseEmbeddedOutline(false);
+    setActivePage(initialPage);
     setPageInput(String(initialPage));
     setViewerInitialPage(initialPage);
     setActiveOutlineId(initialOutlineId);
@@ -307,6 +316,7 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
       unsubscribeLayoutReadyRef.current?.();
       unsubscribeZoomChangeRef.current?.();
       if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+      if (previewObjectUrlRef.current) URL.revokeObjectURL(previewObjectUrlRef.current);
     };
   }, []);
 
@@ -382,18 +392,37 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
     if (!file) return;
     if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
       setSelectedFile(null);
-      setUploadError("Chỉ hỗ trợ file .pdf.");
+      if (previewObjectUrlRef.current) {
+        URL.revokeObjectURL(previewObjectUrlRef.current);
+        previewObjectUrlRef.current = null;
+      }
+      setPreviewPdfUrl(null);
+      setUploadError(".pdfファイルのみ対応しています。");
       return;
     }
     if (file.size > maxUploadSizeBytes) {
       setSelectedFile(null);
-      setUploadError("Dung lượng file tối đa là 20MB.");
+      if (previewObjectUrlRef.current) {
+        URL.revokeObjectURL(previewObjectUrlRef.current);
+        previewObjectUrlRef.current = null;
+      }
+      setPreviewPdfUrl(null);
+      setUploadError("ファイルサイズは最大100MBまでです。");
       return;
     }
 
+    if (previewObjectUrlRef.current) URL.revokeObjectURL(previewObjectUrlRef.current);
+    const previewUrl = URL.createObjectURL(file);
+    previewObjectUrlRef.current = previewUrl;
+    setPreviewPdfUrl(previewUrl);
     setSelectedFile(file);
     setOutlineLoading(true);
     setActiveOutlineId(undefined);
+    setUseEmbeddedOutline(true);
+    setViewerInitialPage(1);
+    setActivePage(1);
+    setPageInput("1");
+    setViewerVersion((version) => version + 1);
 
     const requestId = uploadOutlineRequestRef.current + 1;
     uploadOutlineRequestRef.current = requestId;
@@ -410,12 +439,12 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
       setTotalPages(nextTotalPages);
       setOutline(nextOutline);
       setExpandedSections(expandTopLevelSections(nextOutline));
-      setUploadError(nextOutline.length ? "" : "Không tìm thấy mục lục trong file PDF mới.");
+      setUploadError(nextOutline.length ? "" : "新しいPDFファイル内に目次が見つかりませんでした。");
     } catch {
       if (uploadOutlineRequestRef.current !== requestId) return;
       setOutline([]);
       setExpandedSections({});
-      setUploadError("Không thể đọc mục lục từ file PDF này.");
+      setUploadError("このPDFファイルから目次を読み取れませんでした。");
     } finally {
       if (uploadOutlineRequestRef.current === requestId) {
         setOutlineLoading(false);
@@ -427,15 +456,23 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
     uploadOutlineRequestRef.current += 1;
     setIsEditMode(false);
     setSelectedFile(null);
+    if (previewObjectUrlRef.current) {
+      URL.revokeObjectURL(previewObjectUrlRef.current);
+      previewObjectUrlRef.current = null;
+    }
+    setPreviewPdfUrl(null);
     setReplaceConfirmOpen(false);
     setUploadError("");
     setIsDraggingFile(false);
+    setViewerInitialPage(activePage);
+    setViewerVersion((version) => version + 1);
+    setUseEmbeddedOutline(false);
     setOutlineReloadVersion((version) => version + 1);
   };
 
   const savePdfEdit = () => {
     if (!selectedFile) {
-      toast.warning("Vui lòng chọn file PDF mới trước khi lưu.");
+      toast.warning("保存する前に新しいPDFファイルを選択してください。");
       return;
     }
     setReplaceConfirmOpen(true);
@@ -445,9 +482,11 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
     const file = selectedFile;
     if (!file) return;
     if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
-    const nextUrl = URL.createObjectURL(file);
+    const nextUrl = previewPdfUrl ?? URL.createObjectURL(file);
     objectUrlRef.current = nextUrl;
+    previewObjectUrlRef.current = null;
     setCurrentPdfUrl(nextUrl);
+    setPreviewPdfUrl(null);
     setCurrentFileInfo({
       name: file.name,
       updatedAt: formatUpdatedAt(new Date()),
@@ -460,7 +499,7 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
     setUseEmbeddedOutline(true);
     setReplaceConfirmOpen(false);
     cancelEditMode();
-    toast.success("Cập nhật file PDF thành công.");
+    toast.success("PDFファイルを更新しました。");
   };
 
   const outlineItems = outline.map((item, index) => ({
@@ -520,18 +559,18 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
     const title = tocDialog.title.trim();
     const page = Number(tocDialog.page);
     if (!title) {
-      toast.warning("Vui lòng nhập tên danh mục.");
+      toast.warning("項目名を入力してください。");
       return;
     }
     if (!Number.isFinite(page) || page < 1) {
-      toast.warning("Vui lòng nhập số trang hợp lệ.");
+      toast.warning("有効なページ番号を入力してください。");
       return;
     }
 
     if (tocDialog.mode === "edit") {
       setOutline((current) => current.map((item) => (item.id === tocDialog.itemId ? { ...item, title, page: Math.trunc(page) } : item)));
       setTocDialog(null);
-      toast.success("Cập nhật mục lục thành công.");
+      toast.success("目次を更新しました。");
       return;
     }
 
@@ -555,7 +594,7 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
       return [...current.slice(0, insertIndex), nextItem, ...current.slice(insertIndex)];
     });
     setTocDialog(null);
-    toast.success("Thêm mục lục thành công.");
+    toast.success("目次項目を追加しました。");
   };
 
   const toggleFullscreen = () => {
@@ -575,7 +614,7 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
           <div className="border-b border-slate-200 px-5 py-4 dark:border-[#243447]">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="m-0 text-sm font-bold text-slate-700 dark:text-[#d8e2ed]">Mục lục (PDF)</p>
+                <p className="m-0 text-sm font-bold text-slate-700 dark:text-[#d8e2ed]">目次（PDF）</p>
                 <p className="mt-1 truncate text-xs text-slate-500 dark:text-[#738398]">{outlineTitle}</p>
               </div>
               <div className="flex shrink-0 gap-1">
@@ -584,8 +623,8 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
                     !isEditMode && tocMode === "add" ? "border-cyan-400 bg-cyan-50 text-cyan-700 dark:bg-[#102a41] dark:text-cyan-300" : "border-slate-200 dark:border-[#34465c]"
                   }`}
                   type="button"
-                  title={isEditMode ? "Tắt khi chỉnh sửa PDF" : "Chỉnh sửa"}
-                  aria-label="Chỉnh sửa mục lục"
+                  title={isEditMode ? "PDF編集中は使用できません" : "追加"}
+                  aria-label="目次項目を追加"
                   disabled={isEditMode}
                   onClick={() => setTocMode((mode) => (mode === "add" ? "view" : "add"))}
                 >
@@ -596,8 +635,8 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
                     !isEditMode && tocMode === "edit" ? "border-cyan-400 bg-cyan-50 text-cyan-700 dark:bg-[#102a41] dark:text-cyan-300" : "border-slate-200 dark:border-[#34465c]"
                   }`}
                   type="button"
-                  title={isEditMode ? "T\u1eaft khi ch\u1ec9nh s\u1eeda PDF" : "Ch\u1ec9nh s\u1eeda"}
-                  aria-label="Ch\u1ec9nh s\u1eeda m\u1ee5c l\u1ee5c"
+                  title={isEditMode ? "PDF編集中は使用できません" : "編集"}
+                  aria-label="目次を編集"
                   disabled={isEditMode}
                   onClick={() => setTocMode((mode) => (mode === "edit" ? "view" : "edit"))}
                 >
@@ -606,11 +645,11 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
               </div>
             </div>
           </div>
-          <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-3" aria-label="PDF table of contents">
+          <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-3" aria-label="PDF目次">
             {outlineLoading ? (
               <div className="flex items-center gap-2 px-2 py-3 text-sm text-slate-500 dark:text-[#9ba8b7]">
                 <Loader2 className="animate-spin" size={16} />
-                Đang tải mục lục...
+                目次を読み込み中...
               </div>
             ) : outline.length ? (
               <ul className="grid list-none gap-1 p-0">
@@ -645,8 +684,8 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
                       <button
                         className="grid h-8 w-8 place-items-center rounded-md border border-slate-200 text-slate-500 transition hover:border-cyan-400 hover:bg-cyan-50 hover:text-cyan-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 dark:border-[#34465c] dark:text-[#9ba8b7] dark:hover:bg-[#102a41] dark:hover:text-cyan-300"
                         type="button"
-                        title="Chỉnh sửa mục lục"
-                        aria-label={`Chỉnh sửa ${item.title}`}
+                        title="目次項目を追加"
+                        aria-label={`${item.title}の近くに目次項目を追加`}
                         onClick={() => openAddTocDialog(item)}
                       >
                         <Plus size={14} />
@@ -656,8 +695,8 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
                       <button
                         className="grid h-8 w-8 place-items-center rounded-md border border-slate-200 text-slate-500 transition hover:border-cyan-400 hover:bg-cyan-50 hover:text-cyan-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 dark:border-[#34465c] dark:text-[#9ba8b7] dark:hover:bg-[#102a41] dark:hover:text-cyan-300"
                         type="button"
-                        title="Ch?nh s?a m?c l?c"
-                        aria-label={`Ch?nh s?a ${item.title}`}
+                        title="目次を編集"
+                        aria-label={`${item.title}を編集`}
                         onClick={() => openEditTocDialog(item)}
                       >
                         <SquarePen size={14} />
@@ -667,7 +706,7 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
                 ))}
               </ul>
             ) : (
-              <div className="rounded-md border border-dashed border-slate-300 px-3 py-4 text-sm text-slate-500 dark:border-slate-600 dark:text-[#9ba8b7]">No outline found in this PDF.</div>
+              <div className="rounded-md border border-dashed border-slate-300 px-3 py-4 text-sm text-slate-500 dark:border-slate-600 dark:text-[#9ba8b7]">このPDFには目次が見つかりませんでした。</div>
             )}
           </nav>
         </div>
@@ -687,16 +726,16 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
               className="grid h-9 w-9 place-items-center rounded-lg border border-slate-200 text-slate-600 transition hover:border-cyan-400 hover:text-cyan-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 dark:border-[#243447] dark:text-[#9ba8b7] dark:hover:text-cyan-300"
               href={currentPdfUrl}
               download={currentFileInfo.name}
-              aria-label="Chỉnh sửa PDF"
-              title="Chỉnh sửa PDF"
+              aria-label="PDFをダウンロード"
+              title="PDFをダウンロード"
             >
               <Download size={17} />
             </a>
             <button
               className="grid h-9 w-9 place-items-center rounded-lg border border-slate-200 text-slate-600 transition hover:border-cyan-400 hover:text-cyan-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 dark:border-[#243447] dark:text-[#9ba8b7] dark:hover:text-cyan-300"
               type="button"
-              aria-label="Ch?nh s?a PDF"
-              title="Ch?nh s?a PDF"
+              aria-label="PDFを編集"
+              title="PDFを編集"
               onClick={startPdfEditMode}
             >
               <SquarePen size={17} />
@@ -704,8 +743,8 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
             <button
               className="grid h-9 w-9 place-items-center rounded-lg border border-slate-200 text-slate-600 transition hover:border-cyan-400 hover:text-cyan-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 dark:border-[#243447] dark:text-[#9ba8b7] dark:hover:text-cyan-300"
               type="button"
-              aria-label="Fullscreen"
-              title="Fullscreen"
+              aria-label="全画面表示"
+              title="全画面表示"
               onClick={toggleFullscreen}
             >
               <Expand size={17} />
@@ -714,11 +753,11 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
         </header>
         ) : null}
         {isEditMode ? (
-          <section className="border-b border-slate-200 bg-slate-50 px-5 py-3 dark:border-[#243447] dark:bg-[#0b1a29]" aria-label="PDF edit panel">
+          <section className="border-b border-slate-200 bg-slate-50 px-5 py-3 dark:border-[#243447] dark:bg-[#0b1a29]" aria-label="PDF編集パネル">
             <div className="mb-3 flex items-center justify-between gap-3">
               <div>
-                <h2 className="m-0 text-sm font-bold text-slate-800 dark:text-[#f4f8ff]">Chỉnh sửa PDF</h2>
-                <p className="mt-1 text-xs text-slate-500 dark:text-[#9ba8b7]">Chọn file PDF mới để cập nhật tài liệu hiện tại.</p>
+                <h2 className="m-0 text-sm font-bold text-slate-800 dark:text-[#f4f8ff]">PDFを編集</h2>
+                <p className="mt-1 text-xs text-slate-500 dark:text-[#9ba8b7]">現在の資料を更新する新しいPDFファイルを選択してください。</p>
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 <button
@@ -727,7 +766,7 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
                   onClick={cancelEditMode}
                 >
                   <X size={16} />
-                  Hủy chỉnh sửa
+                  編集をキャンセル
                 </button>
                 <button
                   className="inline-flex h-9 items-center gap-2 rounded-lg bg-cyan-600 px-4 text-sm font-semibold text-white transition hover:bg-cyan-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-cyan-500 dark:text-[#062235] dark:hover:bg-cyan-400"
@@ -736,7 +775,7 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
                   onClick={savePdfEdit}
                 >
                   <CheckCircle2 size={16} />
-                  Lưu
+                  保存
                 </button>
               </div>
             </div>
@@ -773,9 +812,9 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
                     <UploadCloud size={22} />
                   </div>
                   <div>
-                    <p className="m-0 text-sm font-bold text-slate-800 dark:text-[#f4f8ff]">Upload PDF mới</p>
-                    <p className="mt-1 text-sm text-slate-500 dark:text-[#9ba8b7]">Kéo thả file PDF vào đây hoặc chọn file</p>
-                    <p className="mt-1 text-xs text-slate-400 dark:text-[#738398]">Chỉ hỗ trợ file .pdf, tối đa 20MB</p>
+                    <p className="m-0 text-sm font-bold text-slate-800 dark:text-[#f4f8ff]">新しいPDFをアップロード</p>
+                    <p className="mt-1 text-sm text-slate-500 dark:text-[#9ba8b7]">PDFファイルをここにドラッグ＆ドロップ、またはファイルを選択</p>
+                    <p className="mt-1 text-xs text-slate-400 dark:text-[#738398]">.pdfファイルのみ対応、最大100MB</p>
                     {selectedFile ? <p className="mt-3 truncate text-sm font-semibold text-cyan-700 dark:text-cyan-300">{selectedFile.name}</p> : null}
                     {uploadError ? (
                       <p className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-red-600 dark:text-red-300">
@@ -788,13 +827,13 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
               </button>
 
               <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-[#34465c] dark:bg-[#071624]">
-                <p className="m-0 text-sm font-bold text-slate-800 dark:text-[#f4f8ff]">File PDF hiện tại</p>
+                <p className="m-0 text-sm font-bold text-slate-800 dark:text-[#f4f8ff]">現在のPDFファイル</p>
                 <div className="mt-4 flex items-start gap-3">
                   <FileText className="mt-0.5 shrink-0 text-cyan-600 dark:text-cyan-300" size={20} />
                   <div className="min-w-0">
                     <p className="m-0 truncate text-sm font-semibold text-slate-800 dark:text-[#f4f8ff]">{currentFileInfo.name}</p>
-                    <p className="mt-1 text-xs text-slate-500 dark:text-[#9ba8b7]">Cập nhật: {currentFileInfo.updatedAt}</p>
-                    <p className="mt-1 text-xs text-slate-500 dark:text-[#9ba8b7]">Dung lượng: {currentFileInfo.size}</p>
+                    <p className="mt-1 text-xs text-slate-500 dark:text-[#9ba8b7]">更新日時: {currentFileInfo.updatedAt}</p>
+                    <p className="mt-1 text-xs text-slate-500 dark:text-[#9ba8b7]">ファイルサイズ: {currentFileInfo.size}</p>
                   </div>
                 </div>
                 <a
@@ -803,7 +842,7 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
                   download={currentFileInfo.name}
                 >
                   <Download size={16} />
-                  Download file cũ
+                  現在のファイルをダウンロード
                 </a>
               </div>
             </div>
@@ -814,8 +853,8 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
             <button
               className="grid h-8 w-8 place-items-center rounded-md text-slate-600 transition hover:bg-slate-100 hover:text-cyan-700 disabled:cursor-not-allowed disabled:opacity-40 dark:text-[#b7c4d4] dark:hover:bg-[#172a3f] dark:hover:text-cyan-300"
               type="button"
-              aria-label="Previous page"
-              title="Previous page"
+              aria-label="前のページ"
+              title="前のページ"
               disabled={activePage <= 1}
               onClick={() => goToPage(activePage - 1)}
             >
@@ -834,7 +873,7 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
                 min={1}
                 max={totalPages}
                 value={pageInput}
-                aria-label="Page number"
+                aria-label="ページ番号"
                 onBlur={submitPageInput}
                 onChange={(event) => setPageInput(event.target.value)}
               />
@@ -844,8 +883,8 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
             <button
               className="grid h-8 w-8 place-items-center rounded-md text-slate-600 transition hover:bg-slate-100 hover:text-cyan-700 disabled:cursor-not-allowed disabled:opacity-40 dark:text-[#b7c4d4] dark:hover:bg-[#172a3f] dark:hover:text-cyan-300"
               type="button"
-              aria-label="Next page"
-              title="Next page"
+              aria-label="次のページ"
+              title="次のページ"
               disabled={activePage >= totalPages}
               onClick={() => goToPage(activePage + 1)}
             >
@@ -860,8 +899,8 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
             <button
               className="grid h-8 w-8 place-items-center rounded-md text-slate-600 transition hover:bg-slate-100 hover:text-cyan-700 dark:text-[#b7c4d4] dark:hover:bg-[#172a3f] dark:hover:text-cyan-300"
               type="button"
-              aria-label="Zoom out"
-              title="Zoom out"
+              aria-label="縮小"
+              title="縮小"
               onClick={() => zoomCapabilityRef.current?.zoomOut?.()}
             >
               <ZoomOut size={17} />
@@ -869,8 +908,8 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
             <button
               className="grid h-8 w-8 place-items-center rounded-md text-slate-600 transition hover:bg-slate-100 hover:text-cyan-700 dark:text-[#b7c4d4] dark:hover:bg-[#172a3f] dark:hover:text-cyan-300"
               type="button"
-              aria-label="Zoom in"
-              title="Zoom in"
+              aria-label="拡大"
+              title="拡大"
               onClick={() => zoomCapabilityRef.current?.zoomIn?.()}
             >
               <ZoomIn size={17} />
@@ -878,8 +917,8 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
             <button
               className="grid h-8 w-8 place-items-center rounded-md text-slate-600 transition hover:bg-slate-100 hover:text-cyan-700 dark:text-[#b7c4d4] dark:hover:bg-[#172a3f] dark:hover:text-cyan-300"
               type="button"
-              aria-label="Reset zoom"
-              title="Reset zoom"
+              aria-label="ズームをリセット"
+              title="ズームをリセット"
               onClick={() => zoomCapabilityRef.current?.requestZoom?.(1)}
             >
               <RotateCcw size={16} />
@@ -900,8 +939,8 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
               className="h-8 min-w-0 flex-1 bg-transparent text-sm text-slate-950 outline-none placeholder:text-slate-400 dark:text-[#f4f8ff] dark:placeholder:text-[#66788c]"
               type="search"
               value={searchQuery}
-              placeholder="Search in document"
-              aria-label="Search in document"
+              placeholder="文書内を検索"
+              aria-label="文書内を検索"
               onChange={(event) => setSearchQuery(event.target.value)}
             />
           </form>
@@ -1019,8 +1058,8 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
       <Dialog open={replaceConfirmOpen} onOpenChange={setReplaceConfirmOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Xác nhận thay thế PDF</DialogTitle>
-            <DialogDescription>Sau khi bạn lưu thay đổi, File PDF mới sẽ thay thế file PDF hiện tại.</DialogDescription>
+            <DialogTitle>PDFの差し替えを確認</DialogTitle>
+            <DialogDescription>変更を保存すると、新しいPDFファイルが現在のPDFファイルに置き換わります。</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <button
@@ -1028,14 +1067,14 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
               type="button"
               onClick={() => setReplaceConfirmOpen(false)}
             >
-              Hủy
+              キャンセル
             </button>
             <button
               className="inline-flex h-9 items-center justify-center rounded-lg bg-cyan-600 px-4 text-sm font-semibold text-white transition hover:bg-cyan-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 dark:bg-cyan-500 dark:text-[#062235] dark:hover:bg-cyan-400"
               type="button"
               onClick={confirmPdfReplace}
             >
-              Lưu thay đổi
+              変更を保存
             </button>
           </DialogFooter>
         </DialogContent>
@@ -1044,9 +1083,9 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
       <Dialog open={Boolean(tocDialog)} onOpenChange={(open) => !open && setTocDialog(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{tocDialog?.mode === "add" ? "Thêm một mục cùng cấp với mục lục hiện tại." : "Cập nhật tên danh mục và số trang trên giao diện hiện tại."}</DialogTitle>
+            <DialogTitle>{tocDialog?.mode === "add" ? "目次項目を追加" : "目次項目を編集"}</DialogTitle>
             <DialogDescription>
-              {tocDialog?.mode === "add" ? "Thêm một mục cùng cấp với mục lục hiện tại." : "Cập nhật tên danh mục và số trang trên giao diện hiện tại."}
+              {tocDialog?.mode === "add" ? "現在の項目と同じ階層に新しい目次項目を追加します。" : "項目名とページ番号を更新します。"}
             </DialogDescription>
           </DialogHeader>
           {tocDialog ? (
@@ -1058,7 +1097,7 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
               }}
             >
               <label className="grid gap-2 text-sm font-medium text-slate-700 dark:text-[#d8e2ed]">
-                <span>Tên danh mục</span>
+                <span>項目名</span>
                 <input
                   className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/25 dark:border-[#34465c] dark:bg-[#102033] dark:text-[#f4f8ff]"
                   value={tocDialog.title}
@@ -1068,7 +1107,7 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
               </label>
               {tocDialog.mode === "add" ? (
                 <fieldset className="grid gap-2 rounded-md border border-slate-200 p-3 text-sm text-slate-700 dark:border-[#34465c] dark:text-[#d8e2ed]">
-                  <legend className="px-1 text-sm font-medium">Vị trí thêm</legend>
+                  <legend className="px-1 text-sm font-medium">追加位置</legend>
                   <label className="inline-flex items-center gap-2">
                     <input
                       type="radio"
@@ -1076,7 +1115,7 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
                       checked={tocDialog.position === "above"}
                       onChange={() => setTocDialog((current) => (current?.mode === "add" ? { ...current, position: "above" } : current))}
                     />
-                    Trên danh mục hiện tại
+                    現在の項目の上
                   </label>
                   <label className="inline-flex items-center gap-2">
                     <input
@@ -1085,12 +1124,12 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
                       checked={tocDialog.position === "below"}
                       onChange={() => setTocDialog((current) => (current?.mode === "add" ? { ...current, position: "below" } : current))}
                     />
-                    Dưới danh mục hiện tại
+                    現在の項目の下
                   </label>
                 </fieldset>
               ) : null}
               <label className="grid gap-2 text-sm font-medium text-slate-700 dark:text-[#d8e2ed]">
-                <span>Số trang</span>
+                <span>ページ番号</span>
                 <input
                   className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/25 dark:border-[#34465c] dark:bg-[#102033] dark:text-[#f4f8ff]"
                   type="number"
@@ -1106,13 +1145,13 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
                   type="button"
                   onClick={() => setTocDialog(null)}
                 >
-                  Hủy
+                  キャンセル
                 </button>
                 <button
                   className="inline-flex h-9 items-center justify-center rounded-lg bg-cyan-600 px-4 text-sm font-semibold text-white transition hover:bg-cyan-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 dark:bg-cyan-500 dark:text-[#062235] dark:hover:bg-cyan-400"
                   type="submit"
                 >
-                  {tocDialog.mode === "add" ? "Thêm mới" : "Lưu"}
+                  {tocDialog.mode === "add" ? "追加" : "保存"}
                 </button>
               </DialogFooter>
             </form>

@@ -13,17 +13,17 @@ export default async function ChatPage({ searchParams }: PageProps) {
   const sessionId = String(params.sessionId ?? "session_preview");
   const locale = String(params.locale ?? "ja");
   const sections: Array<{ icon: LucideIcon; title: string; description: string }> = [
-    { icon: MessageSquare, title: "Chat realtime UI", description: "オペレーターとの会話エリア" },
-    { icon: NotebookText, title: "FAQ / Knowledge Base", description: "セルフサービス記事と検索" },
-    { icon: Ticket, title: "Ticket form", description: "問い合わせチケット作成" },
-    { icon: History, title: "Conversation history", description: "過去の対応履歴" }
+    { icon: MessageSquare, title: "リアルタイムチャット", description: "オペレーターとの会話エリア" },
+    { icon: NotebookText, title: "FAQ・ナレッジベース", description: "セルフサービス記事と検索" },
+    { icon: Ticket, title: "問い合わせチケット", description: "問い合わせチケット作成" },
+    { icon: History, title: "会話履歴", description: "過去の対応履歴" }
   ];
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-950 dark:bg-[#071624] dark:text-[#f4f8ff]">
       <section className="mx-auto w-[min(560px,calc(100vw-32px))] py-[72px]">
-        <span className="inline-flex rounded-full border border-cyan-400/60 bg-cyan-50 px-3 py-1.5 text-xs font-bold text-cyan-700 dark:bg-[#063047] dark:text-[#00d9ff]">Support Portal</span>
-        <h1 className="mb-4 mt-[18px] text-3xl font-bold">Customer Support</h1>
+        <span className="inline-flex rounded-full border border-cyan-400/60 bg-cyan-50 px-3 py-1.5 text-xs font-bold text-cyan-700 dark:bg-[#063047] dark:text-[#00d9ff]">サポートポータル</span>
+        <h1 className="mb-4 mt-[18px] text-3xl font-bold">カスタマーサポート</h1>
         <p className="leading-[1.8] text-slate-600 dark:text-[#9ba8b7]">
           tenantId: {tenantId} / sessionId: {sessionId} / locale: {locale}
         </p>
