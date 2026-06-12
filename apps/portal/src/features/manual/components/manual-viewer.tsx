@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { AlertCircle, BookOpen, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Download, Expand, FileText, Loader2, Plus, RotateCcw, Search, SquarePen, UploadCloud, X, ZoomIn, ZoomOut } from "lucide-react";
+import { AlertCircle, BookOpen, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Download, Expand, FileText, Loader2, Plus, RotateCcw, Search, SquarePen, Upload, UploadCloud, X, ZoomIn, ZoomOut } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useTheme } from "@/app/theme-provider";
@@ -677,6 +677,15 @@ export function ManualViewer({ pdf = defaultManualPdf, outline: manualOutline, t
                   </button>
                 </div>
               </div>
+            </div>
+            <div className="px-3 py-3">
+              <button
+                className="inline-flex h-8 w-full items-center justify-center gap-2 rounded border border-slate-200 bg-white text-xs font-semibold text-slate-600 transition hover:border-cyan-400 hover:text-cyan-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 dark:border-[#243447] dark:bg-[#071624] dark:text-[#d8e2ed] dark:hover:text-cyan-300 cursor-pointer"
+                type="button"
+              >
+                <Upload size={14} />
+                PDFのアウトラインから再生成
+              </button>
             </div>
             <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-3" aria-label="PDF目次">
               {outlineLoading ? (
